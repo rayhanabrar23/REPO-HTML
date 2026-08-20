@@ -97,9 +97,9 @@ a { text-decoration: none; color: inherit; }
 }
 
 .logo-slot { display: flex; align-items: center; }
-.logo-img { width: 90px; height: 90px; object-fit: contain; }
+.logo-img { width: 120px; height: 120px; object-fit: contain; }
 .logo-fallback {
-  width: 90px; height: 90px;
+  width: 120px; height: 120px;
   border-radius: 12px;
   background: linear-gradient(135deg, var(--maroon-700), var(--maroon-900));
   color: var(--white);
