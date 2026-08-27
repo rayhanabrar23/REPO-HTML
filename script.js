@@ -242,7 +242,7 @@ if ('IntersectionObserver' in window) {
         document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
         document.getElementById('resultMeta').innerHTML =
           `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • ` +
-          `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` ...
+          `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • `
           `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
           (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : '');
         resultBox.hidden = false;
