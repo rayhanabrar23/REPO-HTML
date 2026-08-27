@@ -5,20 +5,22 @@
 // Tambahkan dokumen di sini setelah file PDF di-upload ke assets/documents/
 // Setiap entri: { name: "Nama tampil", file: "nama-file.pdf" }
 const DOCUMENTS = [
-  { name: "FAQ Transaksi REPO", file: "faq-transaksi-repo.pdf" },
-  { name: "Mekanisme REPO", file: "mekanisme-repo.pdf" },
-  { name: "Peraturan OJK", file: "peraturan-ojk.pdf" },
-  { name: "Peraturan KPEI", file: "peraturan-kpei.pdf" },
-  { name: "Penjelasan Transaksi REPO", file: "penjelasan-transaksi-repo.pdf" },  
+  // { name: "Ketentuan Umum Transaksi REPO", file: "ketentuan-umum-repo.pdf" },
+  // { name: "Formulir Pengajuan Nasabah", file: "formulir-pengajuan.pdf" },
 ];
 
-// Kode efek dummy untuk pita ticker (dekoratif saja, tidak real-time)
-const TICKER_SAMPLE = [
-  { code: "BBCA", dir: "up" }, { code: "BBRI", dir: "down" }, { code: "TLKM", dir: "up" },
-  { code: "ASII", dir: "up" }, { code: "BMRI", dir: "down" }, { code: "UNVR", dir: "up" },
-  { code: "ANTM", dir: "down" }, { code: "MNCN", dir: "up" }, { code: "ICBP", dir: "up" },
-  { code: "OBLIGASI-A", dir: "up" }, { code: "OBLIGASI-B", dir: "down" }, { code: "GOTO", dir: "up" },
+// Kode saham untuk pita ticker. Dicoba ambil data live dari Yahoo Finance;
+// kalau gagal (endpoint tidak resmi, lihat catatan di js/market-data.js),
+// otomatis fallback ke arah dummy per-kode supaya ticker tidak pernah kosong.
+const TICKER_CODES = [
+  "BBCA", "BBRI", "BMRI", "TLKM", "ASII", "UNVR", "ANTM", "ICBP",
+  "GOTO", "ADRO", "PGAS", "SMGR", "INDF", "KLBF", "CPIN", "BRPT",
 ];
+const TICKER_DUMMY_DIR = { // fallback kalau live fetch gagal
+  BBCA: "up", BBRI: "down", BMRI: "down", TLKM: "up", ASII: "up", UNVR: "up",
+  ANTM: "down", ICBP: "up", GOTO: "up", ADRO: "down", PGAS: "up", SMGR: "down",
+  INDF: "up", KLBF: "up", CPIN: "down", BRPT: "up",
+};
 
 /* ============================================================
    HEADER SCROLL STATE
@@ -47,19 +49,39 @@ if ('IntersectionObserver' in window) {
 }
 
 /* ============================================================
-   TICKER BAND
+   TICKER BAND — coba data live Yahoo Finance, fallback ke dummy per-kode
    ============================================================ */
 (function buildTicker() {
   const track = document.getElementById('tickerTrack');
   if (!track) return;
+
   const renderItems = (list) => list.map(t => `
     <span class="ticker-item">
       <span class="ticker-code">${t.code}</span>
       <span class="${t.dir === 'up' ? 'ticker-up' : 'ticker-down'}">${t.dir === 'up' ? '▲' : '▼'}</span>
+      ${t.pct != null ? `<span class="${t.dir === 'up' ? 'ticker-up' : 'ticker-down'}" style="font-size:0.75rem;">${t.pct}%</span>` : ''}
     </span>
   `).join('');
-  // Duplikasi list supaya animasi scroll looping mulus (translateX -50%)
-  track.innerHTML = renderItems(TICKER_SAMPLE) + renderItems(TICKER_SAMPLE);
+
+  // Render dummy dulu supaya ticker langsung tampil (tidak nunggu network)
+  const dummyList = TICKER_CODES.map((code) => ({ code, dir: TICKER_DUMMY_DIR[code] || 'up', pct: null }));
+  track.innerHTML = renderItems(dummyList) + renderItems(dummyList);
+
+  // Lalu coba upgrade ke data live di background (kalau berhasil, ticker di-refresh)
+  Promise.all(
+    TICKER_CODES.map((code) =>
+      MarketData.fetchStockMetrics(code)
+        .then((m) => {
+          if (m.error || m.prev_close == null) return { code, dir: TICKER_DUMMY_DIR[code] || 'up', pct: null };
+          const dir = m.latest_close >= m.prev_close ? 'up' : 'down';
+          const pct = (((m.latest_close - m.prev_close) / m.prev_close) * 100).toFixed(2);
+          return { code, dir, pct: Math.abs(pct) };
+        })
+        .catch(() => ({ code, dir: TICKER_DUMMY_DIR[code] || 'up', pct: null }))
+    )
+  ).then((liveList) => {
+    track.innerHTML = renderItems(liveList) + renderItems(liveList);
+  });
 })();
 
 /* ============================================================
@@ -88,38 +110,151 @@ if ('IntersectionObserver' in window) {
 })();
 
 /* ============================================================
-   SIMULATOR (placeholder logic — engine perhitungan resmi menyusul)
+   SIMULATOR — tersambung ke calc-engine.js asli (saham & obligasi)
    ============================================================ */
 (function simulator() {
   const btn = document.getElementById('btnHitung');
   if (!btn) return;
 
   const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  const resultBox = document.getElementById('resultBox');
+  const warnMsg = document.getElementById('warnMsg');
+  const jenisEfekSel = document.getElementById('jenisEfek');
+  const panelSaham = document.getElementById('panelSaham');
+  const panelObligasi = document.getElementById('panelObligasi');
+  const kodeSahamSel = document.getElementById('kodeSaham');
+  const kodeObligasiSel = document.getElementById('kodeObligasi');
+  const fieldRisikoKorporasi = document.getElementById('fieldRisikoKorporasi');
 
-  btn.addEventListener('click', () => {
-    const jenis = document.getElementById('jenisEfek').value;
-    const lembar = parseFloat(document.getElementById('jumlahLembar').value) || 0;
-    const harga = parseFloat(document.getElementById('hargaEfek').value) || 0;
+  let simData = null; // hasil DataLoader.loadAll()
 
-    const resultBox = document.getElementById('resultBox');
-    const warnMsg = document.getElementById('warnMsg');
+  function showWarn(msg) {
+    warnMsg.textContent = msg;
+    warnMsg.hidden = false;
+    resultBox.hidden = true;
+  }
 
-    if (lembar <= 0 || harga <= 0) {
-      warnMsg.hidden = false;
-      resultBox.hidden = true;
+  // ---- Toggle panel saham/obligasi ----
+  jenisEfekSel.addEventListener('change', () => {
+    const isSaham = jenisEfekSel.value === 'saham';
+    panelSaham.hidden = !isSaham;
+    panelObligasi.hidden = isSaham;
+    resultBox.hidden = true;
+    warnMsg.hidden = true;
+  });
+
+  // ---- Tampilkan/sembunyikan pilihan kategori risiko kalau obligasi korporasi dipilih ----
+  kodeObligasiSel?.addEventListener('change', () => {
+    const opt = kodeObligasiSel.selectedOptions[0];
+    fieldRisikoKorporasi.hidden = !(opt && opt.dataset.korporasi === 'true');
+  });
+
+  // ---- Load data referensi & isi dropdown ----
+  DataLoader.loadAll()
+    .then((data) => {
+      simData = data;
+
+      const sahamOptions = DataLoader.getSahamOptions(data);
+      kodeSahamSel.innerHTML = sahamOptions
+        .map((o) => `<option value="${o.kode_efek}">${o.display}</option>`)
+        .join('');
+
+      const obligasiOptions = DataLoader.getObligasiOptions(data);
+      kodeObligasiSel.innerHTML = obligasiOptions
+        .map((o) => `<option value="${o.kode_efek}" data-korporasi="${o.is_korporasi}">${o.display}</option>`)
+        .join('');
+    })
+    .catch((err) => {
+      kodeSahamSel.innerHTML = '<option value="">Gagal memuat data</option>';
+      kodeObligasiSel.innerHTML = '<option value="">Gagal memuat data</option>';
+      console.error('Gagal memuat data referensi simulator:', err);
+    });
+
+  btn.addEventListener('click', async () => {
+    if (!simData) {
+      showWarn('Data referensi masih dimuat, mohon tunggu sebentar lalu coba lagi.');
       return;
     }
     warnMsg.hidden = true;
 
-    const nilaiPasar = lembar * harga;
-    // Haircut dummy — hanya untuk tampilan, formula resmi menyusul
-    const haircutFactor = jenis === 'saham' ? 0.50 : 0.70;
-    const estimasi = nilaiPasar * haircutFactor;
+    const jenis = jenisEfekSel.value;
+    const origLabel = btn.textContent;
+    btn.disabled = true;
 
-    document.getElementById('resultValue').textContent = rupiah(estimasi);
-    document.getElementById('resultMeta').textContent =
-      `Nilai Pasar: ${rupiah(nilaiPasar)} • Haircut Estimasi: ${Math.round((1 - haircutFactor) * 100)}%`;
-    resultBox.hidden = false;
+    try {
+      if (jenis === 'saham') {
+        const kodeSaham = kodeSahamSel.value;
+        const jumlahLot = parseInt(document.getElementById('jumlahLot').value, 10) || 0;
+        if (!kodeSaham || jumlahLot <= 0) {
+          showWarn('Mohon pilih kode efek dan isi jumlah lot terlebih dahulu.');
+          return;
+        }
+
+        btn.textContent = `Mengambil data harga ${kodeSaham}...`;
+        const marketMetrics = await MarketData.fetchStockMetrics(kodeSaham);
+        if (marketMetrics.error) {
+          showWarn(marketMetrics.error);
+          return;
+        }
+
+        const instrumentRow = simData.instrumentByKode[kodeSaham];
+        const haircutRow = simData.haircutKpei[kodeSaham];
+        const listedFfRow = simData.listedFreefloat[kodeSaham];
+
+        if (!instrumentRow || !haircutRow || !listedFfRow) {
+          showWarn(`Data pendukung untuk ${kodeSaham} (Haircut KPEI / Listed-Free Float) tidak lengkap.`);
+          return;
+        }
+
+        const result = CalcEngine.simulateStockFunding({
+          kodeSaham, jumlahLot, marketMetrics, instrumentRow, haircutRow, listedFfRow,
+        });
+        if (result.error) { showWarn(result.error); return; }
+
+        document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Saham)';
+        document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
+        document.getElementById('resultMeta').innerHTML =
+          `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • ` +
+          `Rasio: ${result.recommended_ratio}x • Group: ${result.group} • ` +
+          `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+          (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : '');
+        resultBox.hidden = false;
+
+      } else {
+        const kodeObligasi = kodeObligasiSel.value;
+        const jumlahUnit = parseInt(document.getElementById('jumlahUnit').value, 10) || 0;
+        if (!kodeObligasi || jumlahUnit <= 0) {
+          showWarn('Mohon pilih kode efek dan isi jumlah unit terlebih dahulu.');
+          return;
+        }
+
+        const bondRow = simData.statisEfek[kodeObligasi];
+        if (!bondRow) {
+          showWarn(`Data obligasi ${kodeObligasi} tidak ditemukan.`);
+          return;
+        }
+
+        const kategoriRisikoKorporasi =
+          document.querySelector('input[name="risikoKorporasi"]:checked')?.value || 'Sedang';
+
+        const result = CalcEngine.simulateBondFunding({
+          kodeObligasi, jumlahUnit, bondRow, kategoriRisikoKorporasi,
+        });
+        if (result.error) { showWarn(result.error); return; }
+
+        document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Obligasi)';
+        document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
+        document.getElementById('resultMeta').textContent =
+          `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • ` +
+          `Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`;
+        resultBox.hidden = false;
+      }
+    } catch (err) {
+      showWarn(`Terjadi kendala saat menghitung: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
   });
 })();
 
