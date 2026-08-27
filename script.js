@@ -6,10 +6,7 @@
 // Setiap entri: { name: "Nama tampil", file: "nama-file.pdf" }
 const DOCUMENTS = [
   { name: "FAQ Transaksi REPO", file: "faq-transaksi-repo.pdf" },
-  { name: "Mekanisme REPO", file: "mekanisme-repo.pdf" },
   { name: "Peraturan OJK", file: "peraturan-ojk.pdf" },
-  { name: "Peraturan KPEI", file: "peraturan-kpei.pdf" },
-  { name: "Penjelasan Transaksi REPO", file: "penjelasan-transaksi-repo.pdf" },
 ];
 
 // Kode saham untuk pita ticker. Dicoba ambil data live dari Yahoo Finance;
