@@ -93,7 +93,8 @@
         <div id="panelSaham" class="sim-grid">
           <div class="field" style="grid-column: span 2;">
             <label for="kodeSaham">Kode Efek</label>
-            <select id="kodeSaham"><option value="">Memuat daftar saham...</option></select>
+            <input type="text" id="kodeSaham" list="dlKodeSaham" placeholder="Memuat daftar saham..." autocomplete="off" />
+            <datalist id="dlKodeSaham"></datalist>
           </div>
           <div class="field">
             <label for="jumlahLot">Jumlah Lot</label>
@@ -105,7 +106,8 @@
         <div id="panelObligasi" class="sim-grid" hidden>
           <div class="field" style="grid-column: span 2;">
             <label for="kodeObligasi">Kode Efek</label>
-            <select id="kodeObligasi"><option value="">Memuat daftar obligasi...</option></select>
+            <input type="text" id="kodeObligasi" list="dlKodeObligasi" placeholder="Memuat daftar obligasi..." autocomplete="off" />
+            <datalist id="dlKodeObligasi"></datalist>
           </div>
           <div class="field">
             <label for="jumlahUnit">Jumlah Unit</label>
@@ -157,7 +159,8 @@
         </div>
         <div class="field">
           <label for="fBroker">Broker yang Dipakai *</label>
-          <input type="text" id="fBroker" name="Broker" placeholder="Contoh: XYZ Sekuritas" required />
+          <input type="text" id="fBroker" name="Broker" list="dlBroker" placeholder="Ketik nama broker, lalu pilih..." autocomplete="off" required />
+          <datalist id="dlBroker"></datalist>
         </div>
         <div class="field">
           <label for="fRencana">Rencana Pengajuan *</label>
