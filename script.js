@@ -5,8 +5,11 @@
 // Tambahkan dokumen di sini setelah file PDF di-upload ke assets/documents/
 // Setiap entri: { name: "Nama tampil", file: "nama-file.pdf" }
 const DOCUMENTS = [
-  // { name: "Ketentuan Umum Transaksi REPO", file: "ketentuan-umum-repo.pdf" },
-  // { name: "Formulir Pengajuan Nasabah", file: "formulir-pengajuan.pdf" },
+  { name: "FAQ Transaksi REPO", file: "faq-transaksi-repo.pdf" },
+  { name: "Mekanisme REPO", file: "mekanisme-repo.pdf" },
+  { name: "Peraturan OJK", file: "peraturan-ojk.pdf" },
+  { name: "Peraturan KPEI", file: "peraturan-kpei.pdf" },
+  { name: "Penjelasan Transaksi REPO", file: "penjelasan-transaksi-repo.pdf" },
 ];
 
 // Kode saham untuk pita ticker. Dicoba ambil data live dari Yahoo Finance;
