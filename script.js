@@ -114,6 +114,7 @@ if ('IntersectionObserver' in window) {
 
 /* ============================================================
    SIMULATOR — tersambung ke calc-engine.js asli (saham & obligasi)
+   Field Kode Efek: ketik lalu pilih (datalist), bukan dropdown langsung.
    ============================================================ */
 (function simulator() {
   const btn = document.getElementById('btnHitung');
@@ -127,14 +128,28 @@ if ('IntersectionObserver' in window) {
   const panelObligasi = document.getElementById('panelObligasi');
   const kodeSahamSel = document.getElementById('kodeSaham');
   const kodeObligasiSel = document.getElementById('kodeObligasi');
+  const dlKodeSaham = document.getElementById('dlKodeSaham');
+  const dlKodeObligasi = document.getElementById('dlKodeObligasi');
   const fieldRisikoKorporasi = document.getElementById('fieldRisikoKorporasi');
 
   let simData = null; // hasil DataLoader.loadAll()
+  let sahamMap = {};      // display (label datalist) -> kode_efek
+  let obligasiMap = {};   // display (label datalist) -> { kode_efek, is_korporasi }
 
   function showWarn(msg) {
     warnMsg.textContent = msg;
     warnMsg.hidden = false;
     resultBox.hidden = true;
+  }
+
+  // Cari kode efek dari nilai yang diketik user di field datalist.
+  // Kalau persis cocok dengan salah satu opsi (dipilih dari list), pakai map.
+  // Kalau user ketik manual kode saja (tanpa pilih dari list), ambil token pertama.
+  function resolveKode(inputValue, map) {
+    const val = (inputValue || '').trim();
+    if (map[val]) return map[val];
+    const guess = val.split(/[-–—]/)[0].trim().toUpperCase();
+    return guess;
   }
 
   // ---- Toggle panel saham/obligasi ----
@@ -147,29 +162,38 @@ if ('IntersectionObserver' in window) {
   });
 
   // ---- Tampilkan/sembunyikan pilihan kategori risiko kalau obligasi korporasi dipilih ----
-  kodeObligasiSel?.addEventListener('change', () => {
-    const opt = kodeObligasiSel.selectedOptions[0];
-    fieldRisikoKorporasi.hidden = !(opt && opt.dataset.korporasi === 'true');
+  kodeObligasiSel?.addEventListener('input', () => {
+    const entry = obligasiMap[kodeObligasiSel.value.trim()];
+    fieldRisikoKorporasi.hidden = !(entry && entry.is_korporasi === true);
   });
 
-  // ---- Load data referensi & isi dropdown ----
+  // ---- Load data referensi & isi datalist ----
   DataLoader.loadAll()
     .then((data) => {
       simData = data;
 
       const sahamOptions = DataLoader.getSahamOptions(data);
-      kodeSahamSel.innerHTML = sahamOptions
-        .map((o) => `<option value="${o.kode_efek}">${o.display}</option>`)
+      sahamMap = {};
+      dlKodeSaham.innerHTML = sahamOptions
+        .map((o) => { sahamMap[o.display] = o.kode_efek; return `<option value="${o.display}"></option>`; })
         .join('');
+      kodeSahamSel.placeholder = 'Ketik kode atau nama saham, lalu pilih...';
 
       const obligasiOptions = DataLoader.getObligasiOptions(data);
-      kodeObligasiSel.innerHTML = obligasiOptions
-        .map((o) => `<option value="${o.kode_efek}" data-korporasi="${o.is_korporasi}">${o.display}</option>`)
+      obligasiMap = {};
+      dlKodeObligasi.innerHTML = obligasiOptions
+        .map((o) => {
+          obligasiMap[o.display] = { kode_efek: o.kode_efek, is_korporasi: o.is_korporasi === true || o.is_korporasi === 'true' };
+          return `<option value="${o.display}"></option>`;
+        })
         .join('');
+      kodeObligasiSel.placeholder = 'Ketik kode atau nama obligasi, lalu pilih...';
     })
     .catch((err) => {
-      kodeSahamSel.innerHTML = '<option value="">Gagal memuat data</option>';
-      kodeObligasiSel.innerHTML = '<option value="">Gagal memuat data</option>';
+      kodeSahamSel.placeholder = 'Gagal memuat data';
+      kodeObligasiSel.placeholder = 'Gagal memuat data';
+      kodeSahamSel.disabled = true;
+      kodeObligasiSel.disabled = true;
       console.error('Gagal memuat data referensi simulator:', err);
     });
 
@@ -186,7 +210,7 @@ if ('IntersectionObserver' in window) {
 
     try {
       if (jenis === 'saham') {
-        const kodeSaham = kodeSahamSel.value;
+        const kodeSaham = resolveKode(kodeSahamSel.value, sahamMap);
         const jumlahLot = parseInt(document.getElementById('jumlahLot').value, 10) || 0;
         if (!kodeSaham || jumlahLot <= 0) {
           showWarn('Mohon pilih kode efek dan isi jumlah lot terlebih dahulu.');
@@ -205,7 +229,7 @@ if ('IntersectionObserver' in window) {
         const listedFfRow = simData.listedFreefloat[kodeSaham];
 
         if (!instrumentRow || !haircutRow || !listedFfRow) {
-          showWarn(`Data pendukung untuk ${kodeSaham} (Haircut KPEI / Listed-Free Float) tidak lengkap.`);
+          showWarn(`Data pendukung untuk ${kodeSaham} (Haircut KPEI / Listed-Free Float) tidak lengkap. Pastikan kode dipilih dari daftar yang muncul.`);
           return;
         }
 
@@ -224,7 +248,9 @@ if ('IntersectionObserver' in window) {
         resultBox.hidden = false;
 
       } else {
-        const kodeObligasi = kodeObligasiSel.value;
+        const kodeObligasi = resolveKode(kodeObligasiSel.value, Object.fromEntries(
+          Object.entries(obligasiMap).map(([k, v]) => [k, v.kode_efek])
+        ));
         const jumlahUnit = parseInt(document.getElementById('jumlahUnit').value, 10) || 0;
         if (!kodeObligasi || jumlahUnit <= 0) {
           showWarn('Mohon pilih kode efek dan isi jumlah unit terlebih dahulu.');
@@ -233,7 +259,7 @@ if ('IntersectionObserver' in window) {
 
         const bondRow = simData.statisEfek[kodeObligasi];
         if (!bondRow) {
-          showWarn(`Data obligasi ${kodeObligasi} tidak ditemukan.`);
+          showWarn(`Data obligasi ${kodeObligasi} tidak ditemukan. Pastikan kode dipilih dari daftar yang muncul.`);
           return;
         }
 
@@ -259,6 +285,31 @@ if ('IntersectionObserver' in window) {
       btn.textContent = origLabel;
     }
   });
+})();
+
+/* ============================================================
+   BROKER DATALIST (form pengajuan) — ketik lalu pilih, dari data/broker.json
+   Format broker.json: [{ "broker_code": "...", "broker_name": "..." }, ...]
+   ============================================================ */
+(function buildBrokerDatalist() {
+  const dl = document.getElementById('dlBroker');
+  const input = document.getElementById('fBroker');
+  if (!dl || !input) return;
+
+  fetch('data/broker.json')
+    .then((res) => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then((brokers) => {
+      dl.innerHTML = brokers
+        .map((b) => `<option value="${b.broker_code} — ${b.broker_name}"></option>`)
+        .join('');
+    })
+    .catch((err) => {
+      console.error('Gagal memuat daftar broker (data/broker.json):', err);
+      // Input tetap bisa diisi manual walau daftar broker gagal dimuat.
+    });
 })();
 
 /* ============================================================
