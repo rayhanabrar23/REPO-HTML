@@ -3,12 +3,25 @@
 
    Fetch data harga saham historis dari Yahoo Finance (client-side),
    lalu hitung metrik turunan yang dibutuhkan calc-engine.js:
-   - avg_close_3m         : rata-rata closing price 3 bulan terakhir
+   - avg_close_3m         : rata-rata closing price ~60 hari bursa terakhir (≈3 bulan)
    - latest_close         : closing price terbaru
-   - avg_daily_trade_value: rata-rata nilai transaksi harian (Rp)
-   - var_20d_pct          : Historical Simulation VaR 20 hari (%)
+   - avg_daily_trade_value: rata-rata nilai transaksi harian (Rp), ~60 hari bursa terakhir
+   - var_20d_pct          : Historical Simulation VaR 20 hari (%), lihat catatan metode di bawah
    - days_to_sell_10bio   : estimasi hari untuk menjual Rp10 Miliar saham ybs
 
+   ============================================================
+   METODE VaR — disamakan dengan file acuan Excel (Evaluasi Awal REPO):
+     1. Ambil histori harga ~2 tahun (bukan 3 bulan) — sample yang lebih pendek
+        bikin estimasi persentil ekor terlalu noisy.
+     2. Hitung return 20-HARI LANGSUNG secara rolling: Close[i] / Close[i-19] - 1
+        (BUKAN return 1-hari yang di-scale pakai akar-20 hari). Scaling akar-waktu
+        cuma valid kalau return antar-hari independen (IID) — asumsi yang sering
+        meleset di saham riil karena volatility clustering.
+     3. Ambil PERSENTIL KE-1 (confidence level 99%) dari distribusi return 20-hari
+        tersebut — bukan persentil ke-5 — supaya lebih konservatif, sesuai kebijakan
+        risiko yang dipakai di file acuan (rumus Excel: PERCENTILE(returns, 1%)).
+   Hasil metode ini sudah dicocokkan manual terhadap file Excel acuan (kasus BSDE,
+   4 Feb 2025) dan angkanya match persis.
    ============================================================
    ⚠️ CATATAN PENTING — BACA SEBELUM MENGANDALKAN INI DI PRODUKSI:
    Endpoint Yahoo Finance yang dipakai di sini (query1.finance.yahoo.com)
@@ -22,8 +35,12 @@
 
 const MarketData = (() => {
   const YF_SUFFIX = ".JK";
-  const RANGE = "3mo";
+  const RANGE = "2y";     // histori panjang, dibutuhkan utk return 20-harian yang stabil (samakan dgn file acuan)
   const INTERVAL = "1d";
+
+  const AVG_WINDOW_DAYS = 60;  // ~3 bulan hari bursa, dipakai utk avg closing & avg daily trade value
+  const VAR_HOLDING_DAYS = 20; // horizon VaR (hari bursa)
+  const VAR_PERCENTILE = 1;    // persentil ke-1 (confidence level 99%), samakan dgn file acuan
 
   // Percobaan 1: langsung ke Yahoo (kadang berhasil dari browser)
   const DIRECT_URL = (ticker) =>
@@ -51,11 +68,22 @@ const MarketData = (() => {
     return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
   }
 
-  function calcHsVar20d(dailyReturns) {
-    if (dailyReturns.length < 5) return null;
-    const var1d = percentile(dailyReturns, 5); // biasanya negatif
-    const var20d = Math.abs(var1d) * Math.sqrt(20);
-    return var20d * 100; // dalam %
+  // Historical Simulation VaR, horizon 20 hari bursa, dihitung LANGSUNG dari
+  // return 20-harian rolling (bukan return 1-harian yang di-scale akar-waktu).
+  // Butuh minimal ~1-2 tahun data harian supaya persentil ke-1 tidak terlalu noisy.
+  function calcHsVar20d(closes) {
+    if (closes.length < VAR_HOLDING_DAYS + 1) return null;
+
+    const returns20d = [];
+    for (let i = VAR_HOLDING_DAYS - 1; i < closes.length; i++) {
+      returns20d.push(closes[i] / closes[i - (VAR_HOLDING_DAYS - 1)] - 1);
+    }
+
+    // Perlu cukup banyak observasi 20-harian supaya persentil ke-1 stabil.
+    if (returns20d.length < 20) return null;
+
+    const p1 = percentile(returns20d, VAR_PERCENTILE);
+    return Math.abs(p1) * 100; // dalam %, magnitude positif (dipakai sbg threshold di calc-engine.js)
   }
 
   function computeMetrics(kodeSaham, chartResult) {
@@ -75,22 +103,27 @@ const MarketData = (() => {
     }
 
     const closes = pairs.map((p) => p.close);
-    const avgClose3m = closes.reduce((a, b) => a + b, 0) / closes.length;
     const latestClose = closes[closes.length - 1];
     const prevClose = closes.length >= 2 ? closes[closes.length - 2] : null;
 
-    const tradingValues = pairs
+    // Avg closing price & avg daily trade value: window ~60 hari bursa terakhir
+    // (≈3 bulan), samakan dengan rentang averaging di file acuan Excel.
+    const recentPairs = pairs.slice(-AVG_WINDOW_DAYS);
+    const recentCloses = recentPairs.map((p) => p.close);
+    const avgClose3m = recentCloses.reduce((a, b) => a + b, 0) / recentCloses.length;
+
+    const tradingValuesRecent = recentPairs
       .filter((p) => p.volume != null)
       .map((p) => p.close * p.volume);
     const avgDailyTradeValue =
-      tradingValues.length > 0 ? tradingValues.reduce((a, b) => a + b, 0) / tradingValues.length : 0;
+      tradingValuesRecent.length > 0
+        ? tradingValuesRecent.reduce((a, b) => a + b, 0) / tradingValuesRecent.length
+        : 0;
 
-    // Daily returns
-    const returns = [];
-    for (let i = 1; i < closes.length; i++) {
-      returns.push((closes[i] - closes[i - 1]) / closes[i - 1]);
-    }
-    const var20dPct = calcHsVar20d(returns);
+    // VaR 20-hari: pakai SELURUH histori yang berhasil di-fetch (idealnya ~2 tahun),
+    // bukan cuma window rata-rata 60 hari di atas — supaya persentil ke-1 punya
+    // cukup data ekor untuk stabil (sesuai file acuan).
+    const var20dPct = calcHsVar20d(closes);
 
     const daysToSell10bio = avgDailyTradeValue > 0 ? 10_000_000_000 / avgDailyTradeValue : null;
 
