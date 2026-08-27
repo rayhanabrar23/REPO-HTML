@@ -76,7 +76,7 @@
         <h2>Simulator Perhitungan REPO</h2>
         <p class="section-desc">
           Simulasikan estimasi nilai pendanaan dari saham/obligasi yang akan Anda jaminkan.
-          <em>Ini estimasi awal, nilai final tetap melalui proses evaluasi &amp; persetujuan.</em>
+          <em>nilai yang muncul adalah estimasi awal, nilai final tetap melalui proses evaluasi &amp; persetujuan.</em>
         </p>
       </div>
 
@@ -156,6 +156,14 @@
         <div class="field">
           <label for="fNama">Nama Nasabah *</label>
           <input type="text" id="fNama" name="Nama Nasabah" required />
+        </div>
+        <div class="field">
+          <label for="fEmail">Email Aktif *</label>
+          <input type="email" id="fEmail" name="Email" placeholder="nama@email.com" required />
+        </div>
+        <div class="field">
+          <label for="fWhatsapp">No. WhatsApp *</label>
+          <input type="tel" id="fWhatsapp" name="No. WhatsApp" inputmode="numeric" pattern="[0-9+ ]{8,15}" placeholder="Contoh: 081234567890" required />
         </div>
         <div class="field">
           <label for="fBroker">Broker yang Dipakai *</label>
