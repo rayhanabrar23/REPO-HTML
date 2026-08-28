@@ -96,11 +96,19 @@
         <h2>Simulator Perhitungan REPO</h2>
         <p class="section-desc">
           Simulasikan estimasi nilai pendanaan dari saham/obligasi yang akan Anda jaminkan.
-          <em>Nilai yang muncul merupakan estimasi awal, nilai final tetap melalui proses evaluasi &amp; persetujuan.</em>
+          <em>Ini estimasi awal, nilai final tetap melalui proses evaluasi &amp; persetujuan.</em>
         </p>
       </div>
 
       <div class="sim-card">
+        <div class="field" style="max-width:420px; margin-bottom:1.2rem;">
+          <label for="modeSimulasi">Jenis Simulasi</label>
+          <select id="modeSimulasi">
+            <option value="lot-ke-dana">Saya sudah tahu jumlah lot/unit → hitung estimasi pendanaan</option>
+            <option value="dana-ke-lot">Saya butuh dana sekian → hitung kebutuhan lot/unit</option>
+          </select>
+        </div>
+
         <div class="field" style="max-width:280px; margin-bottom:1.2rem;">
           <label for="jenisEfek">Jenis Efek</label>
           <select id="jenisEfek">
@@ -116,9 +124,13 @@
             <input type="text" id="kodeSaham" list="dlKodeSaham" placeholder="Memuat daftar saham..." autocomplete="off" />
             <datalist id="dlKodeSaham"></datalist>
           </div>
-          <div class="field">
+          <div class="field" id="fieldJumlahLot">
             <label for="jumlahLot">Jumlah Lot</label>
             <input type="number" id="jumlahLot" min="1" step="100" value="100" />
+          </div>
+          <div class="field" id="fieldTargetDanaSaham" hidden>
+            <label for="targetDanaSaham">Kebutuhan Pendanaan (Rp)</label>
+            <input type="number" id="targetDanaSaham" min="0" step="1000000" placeholder="Contoh: 15000000000" />
           </div>
         </div>
 
@@ -129,9 +141,13 @@
             <input type="text" id="kodeObligasi" list="dlKodeObligasi" placeholder="Memuat daftar obligasi..." autocomplete="off" />
             <datalist id="dlKodeObligasi"></datalist>
           </div>
-          <div class="field">
+          <div class="field" id="fieldJumlahUnit">
             <label for="jumlahUnit">Jumlah Unit</label>
             <input type="number" id="jumlahUnit" min="1" step="10" value="100" />
+          </div>
+          <div class="field" id="fieldTargetDanaObligasi" hidden>
+            <label for="targetDanaObligasi">Kebutuhan Pendanaan (Rp)</label>
+            <input type="number" id="targetDanaObligasi" min="0" step="1000000" placeholder="Contoh: 15000000000" />
           </div>
           <div class="field" id="fieldRisikoKorporasi" hidden style="grid-column: span 3;">
             <label>Kategori Risiko (rating per seri belum tersedia — pilih manual)</label>
