@@ -120,6 +120,7 @@ if ('IntersectionObserver' in window) {
   const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
   const resultBox = document.getElementById('resultBox');
   const warnMsg = document.getElementById('warnMsg');
+  const modeSel = document.getElementById('modeSimulasi');
   const jenisEfekSel = document.getElementById('jenisEfek');
   const panelSaham = document.getElementById('panelSaham');
   const panelObligasi = document.getElementById('panelObligasi');
@@ -128,6 +129,10 @@ if ('IntersectionObserver' in window) {
   const dlKodeSaham = document.getElementById('dlKodeSaham');
   const dlKodeObligasi = document.getElementById('dlKodeObligasi');
   const fieldRisikoKorporasi = document.getElementById('fieldRisikoKorporasi');
+  const fieldJumlahLot = document.getElementById('fieldJumlahLot');
+  const fieldTargetDanaSaham = document.getElementById('fieldTargetDanaSaham');
+  const fieldJumlahUnit = document.getElementById('fieldJumlahUnit');
+  const fieldTargetDanaObligasi = document.getElementById('fieldTargetDanaObligasi');
 
   let simData = null; // hasil DataLoader.loadAll()
   let sahamMap = {};      // display (label datalist) -> kode_efek
@@ -148,6 +153,24 @@ if ('IntersectionObserver' in window) {
     const guess = val.split(/[-–—]/)[0].trim().toUpperCase();
     return guess;
   }
+
+  function isReverseMode() {
+    return modeSel.value === 'dana-ke-lot';
+  }
+
+  // ---- Toggle tampilan field sesuai mode simulasi (lot->dana vs dana->lot) ----
+  function applyModeVisibility() {
+    const reverse = isReverseMode();
+    fieldJumlahLot.hidden = reverse;
+    fieldTargetDanaSaham.hidden = !reverse;
+    fieldJumlahUnit.hidden = reverse;
+    fieldTargetDanaObligasi.hidden = !reverse;
+    btn.textContent = reverse ? 'Hitung Kebutuhan Lot/Unit' : 'Hitung Estimasi Pendanaan';
+    resultBox.hidden = true;
+    warnMsg.hidden = true;
+  }
+  modeSel.addEventListener('change', applyModeVisibility);
+  applyModeVisibility();
 
   // ---- Toggle panel saham/obligasi ----
   jenisEfekSel.addEventListener('change', () => {
@@ -202,78 +225,145 @@ if ('IntersectionObserver' in window) {
     warnMsg.hidden = true;
 
     const jenis = jenisEfekSel.value;
+    const reverse = isReverseMode();
     const origLabel = btn.textContent;
     btn.disabled = true;
 
     try {
       if (jenis === 'saham') {
         const kodeSaham = resolveKode(kodeSahamSel.value, sahamMap);
-        const jumlahLot = parseInt(document.getElementById('jumlahLot').value, 10) || 0;
-        if (!kodeSaham || jumlahLot <= 0) {
-          showWarn('Mohon pilih kode efek dan isi jumlah lot terlebih dahulu.');
-          return;
+
+        if (!reverse) {
+          // ---- MODE FORWARD: jumlah lot -> estimasi pendanaan ----
+          const jumlahLot = parseInt(document.getElementById('jumlahLot').value, 10) || 0;
+          if (!kodeSaham || jumlahLot <= 0) {
+            showWarn('Mohon pilih kode efek dan isi jumlah lot terlebih dahulu.');
+            return;
+          }
+
+          btn.textContent = `Mengambil data harga ${kodeSaham}...`;
+          const marketMetrics = await MarketData.fetchStockMetrics(kodeSaham);
+          if (marketMetrics.error) { showWarn(marketMetrics.error); return; }
+
+          const instrumentRow = simData.instrumentByKode[kodeSaham];
+          const haircutRow = simData.haircutKpei[kodeSaham];
+          const listedFfRow = simData.listedFreefloat[kodeSaham];
+          if (!instrumentRow || !haircutRow || !listedFfRow) {
+            showWarn(`Data pendukung untuk ${kodeSaham} (Haircut KPEI / Listed-Free Float) tidak lengkap. Pastikan kode dipilih dari daftar yang muncul.`);
+            return;
+          }
+
+          const result = CalcEngine.simulateStockFunding({
+            kodeSaham, jumlahLot, marketMetrics, instrumentRow, haircutRow, listedFfRow,
+          });
+          if (result.error) { showWarn(result.error); return; }
+
+          document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Saham)';
+          document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
+          document.getElementById('resultMeta').innerHTML =
+            `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • ` +
+            `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` +
+            `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+            (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : '');
+          resultBox.hidden = false;
+
+        } else {
+          // ---- MODE REVERSE: kebutuhan pendanaan -> jumlah lot dibutuhkan ----
+          const targetPendanaan = parseFloat(document.getElementById('targetDanaSaham').value) || 0;
+          if (!kodeSaham || targetPendanaan <= 0) {
+            showWarn('Mohon pilih kode efek dan isi kebutuhan pendanaan terlebih dahulu.');
+            return;
+          }
+
+          btn.textContent = `Mengambil data harga ${kodeSaham}...`;
+          const marketMetrics = await MarketData.fetchStockMetrics(kodeSaham);
+          if (marketMetrics.error) { showWarn(marketMetrics.error); return; }
+
+          const instrumentRow = simData.instrumentByKode[kodeSaham];
+          const haircutRow = simData.haircutKpei[kodeSaham];
+          const listedFfRow = simData.listedFreefloat[kodeSaham];
+          if (!instrumentRow || !haircutRow || !listedFfRow) {
+            showWarn(`Data pendukung untuk ${kodeSaham} (Haircut KPEI / Listed-Free Float) tidak lengkap. Pastikan kode dipilih dari daftar yang muncul.`);
+            return;
+          }
+
+          const result = CalcEngine.computeRequiredStockLots({
+            kodeSaham, targetPendanaan, marketMetrics, instrumentRow, haircutRow, listedFfRow,
+          });
+          if (result.error) { showWarn(result.error); return; }
+
+          document.getElementById('resultLabel').textContent = 'Kebutuhan Jaminan Saham';
+          document.getElementById('resultValue').textContent =
+            `${result.jumlah_lot_dibutuhkan.toLocaleString('id-ID')} Lot`;
+          document.getElementById('resultMeta').innerHTML =
+            `Jumlah Lembar: ${result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')} • ` +
+            `Estimasi Pendanaan Aktual: ${rupiah(result.estimasi_pendanaan_aktual)} • ` +
+            `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` +
+            `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+            (result.kena_cap
+              ? `<br/><span style="color:var(--maroon-700)">⚠ Kebutuhan pendanaan melebihi batas maksimum yang bisa dijaminkan saham ini. ` +
+                `Maksimum pendanaan yang bisa dipenuhi hanya sekitar ${rupiah(result.max_pendanaan_dari_cap)} dari saham ini saja.</span>`
+              : '');
+          resultBox.hidden = false;
         }
-
-        btn.textContent = `Mengambil data harga ${kodeSaham}...`;
-        const marketMetrics = await MarketData.fetchStockMetrics(kodeSaham);
-        if (marketMetrics.error) {
-          showWarn(marketMetrics.error);
-          return;
-        }
-
-        const instrumentRow = simData.instrumentByKode[kodeSaham];
-        const haircutRow = simData.haircutKpei[kodeSaham];
-        const listedFfRow = simData.listedFreefloat[kodeSaham];
-
-        if (!instrumentRow || !haircutRow || !listedFfRow) {
-          showWarn(`Data pendukung untuk ${kodeSaham} (Haircut KPEI / Listed-Free Float) tidak lengkap. Pastikan kode dipilih dari daftar yang muncul.`);
-          return;
-        }
-
-        const result = CalcEngine.simulateStockFunding({
-          kodeSaham, jumlahLot, marketMetrics, instrumentRow, haircutRow, listedFfRow,
-        });
-        if (result.error) { showWarn(result.error); return; }
-
-        document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Saham)';
-        document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
-        document.getElementById('resultMeta').innerHTML =
-          `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • ` +
-          `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` +
-          `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
-          (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : '');
-        resultBox.hidden = false;
 
       } else {
         const kodeObligasi = resolveKode(kodeObligasiSel.value, Object.fromEntries(
           Object.entries(obligasiMap).map(([k, v]) => [k, v.kode_efek])
         ));
-        const jumlahUnit = parseInt(document.getElementById('jumlahUnit').value, 10) || 0;
-        if (!kodeObligasi || jumlahUnit <= 0) {
-          showWarn('Mohon pilih kode efek dan isi jumlah unit terlebih dahulu.');
-          return;
-        }
-
         const bondRow = simData.statisEfek[kodeObligasi];
-        if (!bondRow) {
-          showWarn(`Data obligasi ${kodeObligasi} tidak ditemukan. Pastikan kode dipilih dari daftar yang muncul.`);
-          return;
-        }
-
         const kategoriRisikoKorporasi =
           document.querySelector('input[name="risikoKorporasi"]:checked')?.value || 'Sedang';
 
-        const result = CalcEngine.simulateBondFunding({
-          kodeObligasi, jumlahUnit, bondRow, kategoriRisikoKorporasi,
-        });
-        if (result.error) { showWarn(result.error); return; }
+        if (!reverse) {
+          // ---- MODE FORWARD: jumlah unit -> estimasi pendanaan ----
+          const jumlahUnit = parseInt(document.getElementById('jumlahUnit').value, 10) || 0;
+          if (!kodeObligasi || jumlahUnit <= 0) {
+            showWarn('Mohon pilih kode efek dan isi jumlah unit terlebih dahulu.');
+            return;
+          }
+          if (!bondRow) {
+            showWarn(`Data obligasi ${kodeObligasi} tidak ditemukan. Pastikan kode dipilih dari daftar yang muncul.`);
+            return;
+          }
 
-        document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Obligasi)';
-        document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
-        document.getElementById('resultMeta').textContent =
-          `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • ` +
-          `Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`;
-        resultBox.hidden = false;
+          const result = CalcEngine.simulateBondFunding({
+            kodeObligasi, jumlahUnit, bondRow, kategoriRisikoKorporasi,
+          });
+          if (result.error) { showWarn(result.error); return; }
+
+          document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Obligasi)';
+          document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
+          document.getElementById('resultMeta').textContent =
+            `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • ` +
+            `Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`;
+          resultBox.hidden = false;
+
+        } else {
+          // ---- MODE REVERSE: kebutuhan pendanaan -> jumlah unit dibutuhkan ----
+          const targetPendanaan = parseFloat(document.getElementById('targetDanaObligasi').value) || 0;
+          if (!kodeObligasi || targetPendanaan <= 0) {
+            showWarn('Mohon pilih kode efek dan isi kebutuhan pendanaan terlebih dahulu.');
+            return;
+          }
+          if (!bondRow) {
+            showWarn(`Data obligasi ${kodeObligasi} tidak ditemukan. Pastikan kode dipilih dari daftar yang muncul.`);
+            return;
+          }
+
+          const result = CalcEngine.computeRequiredBondUnits({
+            kodeObligasi, targetPendanaan, bondRow, kategoriRisikoKorporasi,
+          });
+          if (result.error) { showWarn(result.error); return; }
+
+          document.getElementById('resultLabel').textContent = 'Kebutuhan Unit Obligasi';
+          document.getElementById('resultValue').textContent =
+            `${result.jumlah_unit_dibutuhkan.toLocaleString('id-ID')} Unit`;
+          document.getElementById('resultMeta').textContent =
+            `Estimasi Pendanaan Aktual: ${rupiah(result.estimasi_pendanaan_aktual)} • ` +
+            `Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`;
+          resultBox.hidden = false;
+        }
       }
     } catch (err) {
       showWarn(`Terjadi kendala saat menghitung: ${err.message}`);
