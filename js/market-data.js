@@ -42,11 +42,21 @@ const MarketData = (() => {
   const VAR_HOLDING_DAYS = 20; // horizon VaR (hari bursa)
   const VAR_PERCENTILE = 1;    // persentil ke-1 (confidence level 99%), samakan dgn file acuan
 
-  // Percobaan 1: langsung ke Yahoo (kadang berhasil dari browser)
+  // ⚠️ GANTI dengan URL Worker kamu sendiri setelah deploy (lihat cloudflare-worker.js).
+  // Contoh: "https://repo-yahoo-proxy.namakamu.workers.dev"
+  const WORKER_BASE_URL = "https://repo-yahoo-proxy.rayhanabrar023.workers.dev";
+
+  // Yahoo sekarang mewajibkan cookie+crumb yang tidak bisa dipenuhi langsung dari
+  // browser (CORS/SameSite). Semua request lewat Worker di atas, yang menangani
+  // pengambilan cookie+crumb di sisi server.
+  const WORKER_URL = (ticker) =>
+    `${WORKER_BASE_URL}/?ticker=${encodeURIComponent(ticker)}&range=${RANGE}&interval=${INTERVAL}`;
+
+  // Fallback lama (percobaan langsung ke Yahoo / proxy CORS publik) — kemungkinan
+  // besar tetap gagal dengan HTTP 401 karena wajib crumb, tapi dibiarkan sebagai
+  // percobaan terakhir kalau Worker sedang bermasalah.
   const DIRECT_URL = (ticker) =>
     `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=${RANGE}&interval=${INTERVAL}`;
-
-  // Percobaan 2 (fallback): lewat CORS proxy publik gratis, kalau percobaan 1 diblokir CORS
   const PROXY_URL = (ticker) =>
     `https://corsproxy.io/?url=${encodeURIComponent(DIRECT_URL(ticker))}`;
 
@@ -150,14 +160,24 @@ const MarketData = (() => {
     let raw = null;
     let lastErr = null;
 
-    // Percobaan 1: direct
+    // Percobaan 1: lewat Cloudflare Worker (menangani cookie+crumb Yahoo di server)
     try {
-      raw = await fetchJson(DIRECT_URL(ticker));
+      raw = await fetchJson(WORKER_URL(ticker));
     } catch (e) {
       lastErr = e;
     }
 
-    // Percobaan 2: via proxy, kalau percobaan 1 gagal (biasanya CORS)
+    // Percobaan 2 (fallback): langsung ke Yahoo — kemungkinan besar gagal HTTP 401
+    // karena wajib crumb, tapi dicoba kalau Worker down/belum di-deploy
+    if (!raw) {
+      try {
+        raw = await fetchJson(DIRECT_URL(ticker));
+      } catch (e) {
+        lastErr = e;
+      }
+    }
+
+    // Percobaan 3 (fallback terakhir): via proxy CORS publik
     if (!raw) {
       try {
         raw = await fetchJson(PROXY_URL(ticker));
@@ -169,8 +189,8 @@ const MarketData = (() => {
     if (!raw) {
       return {
         error:
-          `Gagal mengambil data harga ${ticker} dari Yahoo Finance ` +
-          `(kemungkinan endpoint diblokir/CORS). Detail: ${lastErr?.message || "unknown"}`,
+          `Gagal mengambil data harga ${ticker}. Pastikan WORKER_BASE_URL di market-data.js ` +
+          `sudah diisi URL Cloudflare Worker yang aktif. Detail: ${lastErr?.message || "unknown"}`,
       };
     }
 
