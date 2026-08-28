@@ -2,7 +2,7 @@
    CALC ENGINE — port dari calc_engine.py (Python)
    Core logic simulasi estimasi pendanaan REPO.
 
-   Alur:
+   Alur (mode forward — dari lot/unit ke estimasi pendanaan):
    1. Tentukan Group instrumen (LQ45 / IDX80 non LQ45 / Marjin Lainnya / Non Marjin)
    2. Tentukan kategori Haircut KPEI (Low / MedLow / MedHigh / High)
    3. Cari Recommended Ratio dari matrix rasio (pakai VaR & Days-to-Sell utk pilih tier)
@@ -10,6 +10,17 @@
       antara avg closing 3 bulan vs closing terbaru, sebagai buffer konservatif)
    5. Cap Nilai Jaminan ke batas per-saham: MIN(5% x Listed Shares Value, 20% x Free Float Value)
    6. Estimasi Pendanaan = Nilai Jaminan (setelah cap) / Recommended Ratio
+
+   Mode reverse (dari kebutuhan pendanaan ke lot/unit) — kebalikan dari alur di atas:
+   1-3 sama seperti forward (Group, Haircut, Recommended Ratio tidak tergantung
+      besarnya dana yang diminta).
+   4. Nilai Jaminan Dibutuhkan = Target Pendanaan x Recommended Ratio
+   5. Kalau Nilai Jaminan Dibutuhkan > batas cap per-saham → kena cap, pendanaan
+      yang bisa dipenuhi instrumen ini terbatas pada cap tsb (dana tidak akan
+      terpenuhi penuh hanya dari 1 saham ini).
+   6. Jumlah Lembar/Unit Dibutuhkan = Nilai Jaminan (setelah cap) / harga (saham)
+      atau / (nominal x closing price) (obligasi) — dibulatkan KE ATAS ke satuan
+      lot (saham, kelipatan 100 lembar) atau unit (obligasi).
 
    Catatan: batas maksimum per counterpart (15% x Equity PEI) & cek outstanding
    REPO existing SENGAJA di-skip di versi ini (keputusan user, sama seperti versi Python).
@@ -90,8 +101,36 @@ const CalcEngine = (() => {
     return rasioMatrix[group][tier][kategoriHaircut];
   }
 
+  // Hitung Group, kategori haircut, tier & recommended ratio saham.
+  // Dipakai bersama oleh mode forward maupun reverse (tidak tergantung
+  // besar dana/jumlah lot yang diminta).
+  function hitungRasioSaham({ marketMetrics, instrumentRow, haircutRow }) {
+    const group = tentukanGroup(instrumentRow.index_membership, instrumentRow.is_margin);
+    const haircutPct = haircutRow.haircut_kpei_pct;
+    if (haircutPct == null) {
+      return { error: `Haircut KPEI tidak ditemukan` };
+    }
+    const kategoriHaircut = tentukanKategoriHaircut(haircutPct);
+    const tier = pilihTier(group, marketMetrics.var_20d_pct, marketMetrics.days_to_sell_10bio, RASIO_SAHAM_THRESHOLDS);
+    const recommendedRatio = cariRecommendedRatio(group, tier, kategoriHaircut, RASIO_SAHAM_MATRIX);
+    return { group, haircutPct, kategoriHaircut, tier, recommendedRatio };
+  }
+
+  // Cap nilai jaminan per saham (5% Listed Shares Value / 20% Free Float Value),
+  // dalam Rupiah. Independen dari jumlah lot/dana yang diminta.
+  function hitungCapSaham({ hargaTerendah, listedFfRow }) {
+    const listedShares = listedFfRow.listed_shares;
+    const freeFloatShares = listedFfRow.free_float_shares;
+    const listedSharesValue = listedShares ? listedShares * hargaTerendah : null;
+    const freeFloatValue = freeFloatShares ? freeFloatShares * hargaTerendah : null;
+    const capListed = listedSharesValue != null ? listedSharesValue * CAP_PCT_LISTED_SHARES : null;
+    const capFreefloat = freeFloatValue != null ? freeFloatValue * CAP_PCT_FREE_FLOAT : null;
+    const caps = [capListed, capFreefloat].filter((c) => c != null);
+    return caps.length ? Math.min(...caps) : null;
+  }
+
   // ------------------------------------------------------------
-  // SAHAM
+  // SAHAM — mode forward: jumlah lot -> estimasi pendanaan
   // ------------------------------------------------------------
   function simulateStockFunding({
     kodeSaham,
@@ -103,37 +142,21 @@ const CalcEngine = (() => {
   }) {
     const jumlahLembar = jumlahLot * 100;
 
-    // 1. Group & kategori haircut
-    const group = tentukanGroup(instrumentRow.index_membership, instrumentRow.is_margin);
-    const haircutPct = haircutRow.haircut_kpei_pct;
-    if (haircutPct == null) {
-      return { error: `Haircut KPEI untuk ${kodeSaham} tidak ditemukan` };
-    }
-    const kategoriHaircut = tentukanKategoriHaircut(haircutPct);
+    const rasioInfo = hitungRasioSaham({ marketMetrics, instrumentRow, haircutRow });
+    if (rasioInfo.error) return { error: `${rasioInfo.error} untuk ${kodeSaham}` };
+    const { group, haircutPct, kategoriHaircut, recommendedRatio } = rasioInfo;
 
-    // 2. Recommended ratio
-    const tier = pilihTier(group, marketMetrics.var_20d_pct, marketMetrics.days_to_sell_10bio, RASIO_SAHAM_THRESHOLDS);
-    const recommendedRatio = cariRecommendedRatio(group, tier, kategoriHaircut, RASIO_SAHAM_MATRIX);
-
-    // 3. Nilai Jaminan mentah (harga terendah = buffer konservatif)
+    // Nilai Jaminan mentah (harga terendah = buffer konservatif)
     const hargaTerendah = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
     const nilaiJaminanMentah = jumlahLembar * hargaTerendah;
 
-    // 4. Cap per saham (5% Listed Shares / 20% Free Float)
-    const listedShares = listedFfRow.listed_shares;
-    const freeFloatShares = listedFfRow.free_float_shares;
-    const listedSharesValue = listedShares ? listedShares * hargaTerendah : null;
-    const freeFloatValue = freeFloatShares ? freeFloatShares * hargaTerendah : null;
-
-    const capListed = listedSharesValue != null ? listedSharesValue * CAP_PCT_LISTED_SHARES : null;
-    const capFreefloat = freeFloatValue != null ? freeFloatValue * CAP_PCT_FREE_FLOAT : null;
-    const caps = [capListed, capFreefloat].filter((c) => c != null);
-    const maxCollValue = caps.length ? Math.min(...caps) : null;
+    // Cap per saham (5% Listed Shares / 20% Free Float)
+    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow });
 
     const nilaiJaminanFinal = maxCollValue != null ? Math.min(nilaiJaminanMentah, maxCollValue) : nilaiJaminanMentah;
     const kenaCap = maxCollValue != null && nilaiJaminanMentah > maxCollValue;
 
-    // 5. Estimasi pendanaan
+    // Estimasi pendanaan
     const estimasiPendanaan = nilaiJaminanFinal / recommendedRatio;
 
     return {
@@ -158,35 +181,89 @@ const CalcEngine = (() => {
   }
 
   // ------------------------------------------------------------
-  // OBLIGASI
+  // SAHAM — mode reverse: kebutuhan pendanaan -> jumlah lot dibutuhkan
   // ------------------------------------------------------------
+  function computeRequiredStockLots({
+    kodeSaham,
+    targetPendanaan, // Rp, kebutuhan dana yang diinput user
+    marketMetrics,
+    instrumentRow,
+    haircutRow,
+    listedFfRow,
+  }) {
+    if (!targetPendanaan || targetPendanaan <= 0) {
+      return { error: "Kebutuhan pendanaan harus lebih dari 0" };
+    }
+
+    const rasioInfo = hitungRasioSaham({ marketMetrics, instrumentRow, haircutRow });
+    if (rasioInfo.error) return { error: `${rasioInfo.error} untuk ${kodeSaham}` };
+    const { group, haircutPct, kategoriHaircut, recommendedRatio } = rasioInfo;
+
+    const hargaTerendah = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
+    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow });
+    const maxPendanaanDariCap = maxCollValue != null ? maxCollValue / recommendedRatio : null;
+
+    // Nilai jaminan dibutuhkan supaya dana yang diminta terpenuhi
+    const nilaiJaminanDibutuhkan = targetPendanaan * recommendedRatio;
+    const kenaCap = maxCollValue != null && nilaiJaminanDibutuhkan > maxCollValue;
+    const nilaiJaminanDipakai = kenaCap ? maxCollValue : nilaiJaminanDibutuhkan;
+
+    // Jumlah lembar -> dibulatkan ke atas ke kelipatan 1 lot (100 lembar)
+    const jumlahLembarMentah = nilaiJaminanDipakai / hargaTerendah;
+    const jumlahLot = Math.ceil(jumlahLembarMentah / 100);
+    const jumlahLembar = jumlahLot * 100;
+
+    // Estimasi pendanaan aktual setelah pembulatan ke lot bulat
+    // (bisa sedikit lebih besar dari target karena pembulatan ke atas,
+    // atau lebih kecil dari target kalau kena cap)
+    const nilaiJaminanAktual = Math.min(jumlahLembar * hargaTerendah, maxCollValue ?? Infinity);
+    const estimasiPendanaanAktual = nilaiJaminanAktual / recommendedRatio;
+
+    return {
+      kode_saham: kodeSaham,
+      target_pendanaan: targetPendanaan,
+      group,
+      kategori_haircut: kategoriHaircut,
+      haircut_kpei_pct: haircutPct,
+      harga_dipakai: hargaTerendah,
+      recommended_ratio: recommendedRatio,
+      nilai_jaminan_dibutuhkan: nilaiJaminanDibutuhkan,
+      max_coll_value_cap: maxCollValue,
+      max_pendanaan_dari_cap: maxPendanaanDariCap,
+      kena_cap: kenaCap,
+      jumlah_lembar_dibutuhkan: jumlahLembar,
+      jumlah_lot_dibutuhkan: jumlahLot,
+      estimasi_pendanaan_aktual: estimasiPendanaanAktual,
+    };
+  }
+
+  // ------------------------------------------------------------
+  // OBLIGASI — mode forward: jumlah unit -> estimasi pendanaan
+  // ------------------------------------------------------------
+  function tentukanRasioObligasi(bondRow, kategoriRisikoKorporasi) {
+    const tipe = (bondRow.tipe_instrumen || "").toUpperCase();
+    const isPemerintah = ["GOVERNMENT BOND", "SBSN", "SUKUK", "SPN"].includes(tipe);
+
+    if (isPemerintah) {
+      return { jenisObligasi: "Pemerintah", rasio: RASIO_OBLIGASI_PEMERINTAH, kategoriRisiko: "Rendah", tipe };
+    }
+    let kategori = kategoriRisikoKorporasi;
+    if (!(kategori in RASIO_OBLIGASI_KORPORASI)) kategori = "Sedang";
+    return { jenisObligasi: "Korporasi", rasio: RASIO_OBLIGASI_KORPORASI[kategori], kategoriRisiko: kategori, tipe };
+  }
+
   function simulateBondFunding({
     kodeObligasi,
     jumlahUnit,
     bondRow, // { tipe_instrumen, closing_price_pct, nama_efek, maturity_date, kupon_pct }
     kategoriRisikoKorporasi = "Sedang",
   }) {
-    const tipe = (bondRow.tipe_instrumen || "").toUpperCase();
     const closingPct = bondRow.closing_price_pct;
     if (closingPct == null) {
       return { error: `Closing price untuk ${kodeObligasi} tidak ditemukan` };
     }
 
-    const isPemerintah = ["GOVERNMENT BOND", "SBSN", "SUKUK", "SPN"].includes(tipe);
-
-    let jenisObligasi, rasio, kategoriRisiko;
-    if (isPemerintah) {
-      jenisObligasi = "Pemerintah";
-      rasio = RASIO_OBLIGASI_PEMERINTAH;
-      kategoriRisiko = "Rendah";
-    } else {
-      jenisObligasi = "Korporasi";
-      if (!(kategoriRisikoKorporasi in RASIO_OBLIGASI_KORPORASI)) {
-        kategoriRisikoKorporasi = "Sedang";
-      }
-      rasio = RASIO_OBLIGASI_KORPORASI[kategoriRisikoKorporasi];
-      kategoriRisiko = kategoriRisikoKorporasi;
-    }
+    const { jenisObligasi, rasio, kategoriRisiko, tipe } = tentukanRasioObligasi(bondRow, kategoriRisikoKorporasi);
 
     // Nilai Jaminan = jumlah unit x nominal per unit x closing price (fraksi par)
     const nilaiJaminan = jumlahUnit * NOMINAL_PER_UNIT_OBLIGASI * closingPct;
@@ -209,5 +286,56 @@ const CalcEngine = (() => {
     };
   }
 
-  return { simulateStockFunding, simulateBondFunding, tentukanGroup, tentukanKategoriHaircut };
+  // ------------------------------------------------------------
+  // OBLIGASI — mode reverse: kebutuhan pendanaan -> jumlah unit dibutuhkan
+  // ------------------------------------------------------------
+  function computeRequiredBondUnits({
+    kodeObligasi,
+    targetPendanaan,
+    bondRow,
+    kategoriRisikoKorporasi = "Sedang",
+  }) {
+    if (!targetPendanaan || targetPendanaan <= 0) {
+      return { error: "Kebutuhan pendanaan harus lebih dari 0" };
+    }
+
+    const closingPct = bondRow.closing_price_pct;
+    if (closingPct == null) {
+      return { error: `Closing price untuk ${kodeObligasi} tidak ditemukan` };
+    }
+
+    const { jenisObligasi, rasio, kategoriRisiko, tipe } = tentukanRasioObligasi(bondRow, kategoriRisikoKorporasi);
+
+    const nilaiJaminanDibutuhkan = targetPendanaan * rasio;
+    const nilaiPerUnit = NOMINAL_PER_UNIT_OBLIGASI * closingPct;
+    const jumlahUnit = Math.ceil(nilaiJaminanDibutuhkan / nilaiPerUnit);
+    const nilaiJaminanAktual = jumlahUnit * nilaiPerUnit;
+    const estimasiPendanaanAktual = nilaiJaminanAktual / rasio;
+
+    return {
+      kode_obligasi: kodeObligasi,
+      nama_obligasi: bondRow.nama_efek,
+      tipe_instrumen: tipe,
+      jenis_obligasi: jenisObligasi,
+      kategori_risiko: kategoriRisiko,
+      target_pendanaan: targetPendanaan,
+      nominal_per_unit: NOMINAL_PER_UNIT_OBLIGASI,
+      closing_price_pct: closingPct,
+      rasio,
+      nilai_jaminan_dibutuhkan: nilaiJaminanDibutuhkan,
+      jumlah_unit_dibutuhkan: jumlahUnit,
+      estimasi_pendanaan_aktual: estimasiPendanaanAktual,
+      maturity_date: bondRow.maturity_date,
+      kupon_pct: bondRow.kupon_pct,
+    };
+  }
+
+  return {
+    simulateStockFunding,
+    simulateBondFunding,
+    computeRequiredStockLots,
+    computeRequiredBondUnits,
+    tentukanGroup,
+    tentukanKategoriHaircut,
+  };
 })();
