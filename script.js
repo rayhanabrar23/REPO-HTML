@@ -117,9 +117,13 @@ if ('IntersectionObserver' in window) {
   const btn = document.getElementById('btnHitung');
   if (!btn) return;
 
+  const SIM_STORAGE_KEY = 'repoSimulasiTersimpan';
+
   const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
   const resultBox = document.getElementById('resultBox');
   const warnMsg = document.getElementById('warnMsg');
+  const btnSimpanSimulasi = document.getElementById('btnSimpanSimulasi');
+  const simSavedMsg = document.getElementById('simSavedMsg');
   const modeSel = document.getElementById('modeSimulasi');
   const jenisEfekSel = document.getElementById('jenisEfek');
   const panelSaham = document.getElementById('panelSaham');
@@ -137,12 +141,41 @@ if ('IntersectionObserver' in window) {
   let simData = null; // hasil DataLoader.loadAll()
   let sahamMap = {};      // display (label datalist) -> kode_efek
   let obligasiMap = {};   // display (label datalist) -> { kode_efek, is_korporasi }
+  let currentSimPayload = null; // data hasil hitung terakhir, siap disimpan ke sessionStorage
 
   function showWarn(msg) {
     warnMsg.textContent = msg;
     warnMsg.hidden = false;
     resultBox.hidden = true;
+    btnSimpanSimulasi.hidden = true;
+    simSavedMsg.hidden = true;
+    currentSimPayload = null;
   }
+
+  // Render hasil simulasi (dipakai oleh ke-4 kombinasi: saham/obligasi x forward/reverse)
+  // dan siapkan payload yang akan disimpan kalau tombol "Simpan Simulasi" diklik.
+  function showResult({ label, value, metaHTML, payload }) {
+    document.getElementById('resultLabel').textContent = label;
+    document.getElementById('resultValue').textContent = value;
+    document.getElementById('resultMeta').innerHTML = metaHTML;
+    resultBox.hidden = false;
+    btnSimpanSimulasi.hidden = false;
+    btnSimpanSimulasi.textContent = '💾 Simpan Simulasi Ini';
+    simSavedMsg.hidden = true;
+    currentSimPayload = payload;
+  }
+
+  btnSimpanSimulasi.addEventListener('click', () => {
+    if (!currentSimPayload) return;
+    try {
+      sessionStorage.setItem(SIM_STORAGE_KEY, JSON.stringify(currentSimPayload));
+      simSavedMsg.textContent = '✓ Simulasi disimpan — scroll ke Form Pengajuan di bawah untuk memakainya.';
+      simSavedMsg.hidden = false;
+      btnSimpanSimulasi.textContent = '✓ Tersimpan';
+    } catch (err) {
+      console.error('Gagal menyimpan simulasi ke sessionStorage:', err);
+    }
+  });
 
   // Cari kode efek dari nilai yang diketik user di field datalist.
   // Kalau persis cocok dengan salah satu opsi (dipilih dari list), pakai map.
@@ -168,6 +201,8 @@ if ('IntersectionObserver' in window) {
     btn.textContent = reverse ? 'Hitung Kebutuhan Lot/Unit' : 'Hitung Estimasi Pendanaan';
     resultBox.hidden = true;
     warnMsg.hidden = true;
+    btnSimpanSimulasi.hidden = true;
+    simSavedMsg.hidden = true;
   }
   modeSel.addEventListener('change', applyModeVisibility);
   applyModeVisibility();
@@ -179,6 +214,8 @@ if ('IntersectionObserver' in window) {
     panelObligasi.hidden = isSaham;
     resultBox.hidden = true;
     warnMsg.hidden = true;
+    btnSimpanSimulasi.hidden = true;
+    simSavedMsg.hidden = true;
   });
 
   // ---- Tampilkan/sembunyikan pilihan kategori risiko kalau obligasi korporasi dipilih ----
@@ -231,7 +268,8 @@ if ('IntersectionObserver' in window) {
 
     try {
       if (jenis === 'saham') {
-        const kodeSaham = resolveKode(kodeSahamSel.value, sahamMap);
+        const namaTampilSaham = kodeSahamSel.value.trim();
+        const kodeSaham = resolveKode(namaTampilSaham, sahamMap);
 
         if (!reverse) {
           // ---- MODE FORWARD: jumlah lot -> estimasi pendanaan ----
@@ -258,14 +296,25 @@ if ('IntersectionObserver' in window) {
           });
           if (result.error) { showWarn(result.error); return; }
 
-          document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Saham)';
-          document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
-          document.getElementById('resultMeta').innerHTML =
-            `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • ` +
-            `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` +
-            `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
-            (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : '');
-          resultBox.hidden = false;
+          showResult({
+            label: 'Estimasi Nilai Pendanaan (Saham)',
+            value: rupiah(result.estimasi_pendanaan),
+            metaHTML:
+              `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • ` +
+              `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` +
+              `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+              (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : ''),
+            payload: {
+              jenis: 'saham',
+              mode: 'lot-ke-dana',
+              kode: kodeSaham,
+              namaTampil: namaTampilSaham || kodeSaham,
+              jumlah: jumlahLot,
+              satuan: 'Lot',
+              estimasiPendanaan: result.estimasi_pendanaan,
+              timestamp: Date.now(),
+            },
+          });
 
         } else {
           // ---- MODE REVERSE: kebutuhan pendanaan -> jumlah lot dibutuhkan ----
@@ -292,23 +341,34 @@ if ('IntersectionObserver' in window) {
           });
           if (result.error) { showWarn(result.error); return; }
 
-          document.getElementById('resultLabel').textContent = 'Kebutuhan Jaminan Saham';
-          document.getElementById('resultValue').textContent =
-            `${result.jumlah_lot_dibutuhkan.toLocaleString('id-ID')} Lot`;
-          document.getElementById('resultMeta').innerHTML =
-            `Jumlah Lembar: ${result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')} • ` +
-            `Estimasi Pendanaan Aktual: ${rupiah(result.estimasi_pendanaan_aktual)} • ` +
-            `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` +
-            `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
-            (result.kena_cap
-              ? `<br/><span style="color:var(--maroon-700)">⚠ Kebutuhan pendanaan melebihi batas maksimum yang bisa dijaminkan saham ini. ` +
-                `Maksimum pendanaan yang bisa dipenuhi hanya sekitar ${rupiah(result.max_pendanaan_dari_cap)} dari saham ini saja.</span>`
-              : '');
-          resultBox.hidden = false;
+          showResult({
+            label: 'Kebutuhan Jaminan Saham',
+            value: `${result.jumlah_lot_dibutuhkan.toLocaleString('id-ID')} Lot`,
+            metaHTML:
+              `Jumlah Lembar: ${result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')} • ` +
+              `Estimasi Pendanaan Aktual: ${rupiah(result.estimasi_pendanaan_aktual)} • ` +
+              `Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group} • ` +
+              `Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+              (result.kena_cap
+                ? `<br/><span style="color:var(--maroon-700)">⚠ Kebutuhan pendanaan melebihi batas maksimum yang bisa dijaminkan saham ini. ` +
+                  `Maksimum pendanaan yang bisa dipenuhi hanya sekitar ${rupiah(result.max_pendanaan_dari_cap)} dari saham ini saja.</span>`
+                : ''),
+            payload: {
+              jenis: 'saham',
+              mode: 'dana-ke-lot',
+              kode: kodeSaham,
+              namaTampil: namaTampilSaham || kodeSaham,
+              jumlah: result.jumlah_lot_dibutuhkan,
+              satuan: 'Lot',
+              estimasiPendanaan: result.estimasi_pendanaan_aktual,
+              timestamp: Date.now(),
+            },
+          });
         }
 
       } else {
-        const kodeObligasi = resolveKode(kodeObligasiSel.value, Object.fromEntries(
+        const namaTampilObligasi = kodeObligasiSel.value.trim();
+        const kodeObligasi = resolveKode(namaTampilObligasi, Object.fromEntries(
           Object.entries(obligasiMap).map(([k, v]) => [k, v.kode_efek])
         ));
         const bondRow = simData.statisEfek[kodeObligasi];
@@ -332,12 +392,23 @@ if ('IntersectionObserver' in window) {
           });
           if (result.error) { showWarn(result.error); return; }
 
-          document.getElementById('resultLabel').textContent = 'Estimasi Nilai Pendanaan (Obligasi)';
-          document.getElementById('resultValue').textContent = rupiah(result.estimasi_pendanaan);
-          document.getElementById('resultMeta').textContent =
-            `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • ` +
-            `Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`;
-          resultBox.hidden = false;
+          showResult({
+            label: 'Estimasi Nilai Pendanaan (Obligasi)',
+            value: rupiah(result.estimasi_pendanaan),
+            metaHTML:
+              `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • ` +
+              `Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`,
+            payload: {
+              jenis: 'obligasi',
+              mode: 'lot-ke-dana',
+              kode: kodeObligasi,
+              namaTampil: namaTampilObligasi || kodeObligasi,
+              jumlah: jumlahUnit,
+              satuan: 'Unit',
+              estimasiPendanaan: result.estimasi_pendanaan,
+              timestamp: Date.now(),
+            },
+          });
 
         } else {
           // ---- MODE REVERSE: kebutuhan pendanaan -> jumlah unit dibutuhkan ----
@@ -356,13 +427,23 @@ if ('IntersectionObserver' in window) {
           });
           if (result.error) { showWarn(result.error); return; }
 
-          document.getElementById('resultLabel').textContent = 'Kebutuhan Unit Obligasi';
-          document.getElementById('resultValue').textContent =
-            `${result.jumlah_unit_dibutuhkan.toLocaleString('id-ID')} Unit`;
-          document.getElementById('resultMeta').textContent =
-            `Estimasi Pendanaan Aktual: ${rupiah(result.estimasi_pendanaan_aktual)} • ` +
-            `Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`;
-          resultBox.hidden = false;
+          showResult({
+            label: 'Kebutuhan Unit Obligasi',
+            value: `${result.jumlah_unit_dibutuhkan.toLocaleString('id-ID')} Unit`,
+            metaHTML:
+              `Estimasi Pendanaan Aktual: ${rupiah(result.estimasi_pendanaan_aktual)} • ` +
+              `Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`,
+            payload: {
+              jenis: 'obligasi',
+              mode: 'dana-ke-lot',
+              kode: kodeObligasi,
+              namaTampil: namaTampilObligasi || kodeObligasi,
+              jumlah: result.jumlah_unit_dibutuhkan,
+              satuan: 'Unit',
+              estimasiPendanaan: result.estimasi_pendanaan_aktual,
+              timestamp: Date.now(),
+            },
+          });
         }
       }
     } catch (err) {
@@ -371,6 +452,53 @@ if ('IntersectionObserver' in window) {
       btn.disabled = false;
       btn.textContent = origLabel;
     }
+  });
+})();
+
+/* ============================================================
+   MUAT SIMULASI TERSIMPAN — ke Form Pengajuan
+   Membaca sessionStorage (diisi oleh tombol "Simpan Simulasi Ini" di
+   simulator), menampilkan ringkasannya, dan mengisi otomatis field
+   "Saham/Obligasi yang Diajukan" + "Rencana Pengajuan" kalau tombol
+   "Gunakan Data Ini di Form" diklik.
+   ============================================================ */
+(function muatSimulasiTersimpan() {
+  const SIM_STORAGE_KEY = 'repoSimulasiTersimpan';
+  const box = document.getElementById('simulasiTersimpanBox');
+  const metaEl = document.getElementById('simulasiTersimpanMeta');
+  const btnMuat = document.getElementById('btnMuatSimulasi');
+  const fSaham = document.getElementById('fSaham');
+  const fRencana = document.getElementById('fRencana');
+  if (!box || !metaEl || !btnMuat || !fSaham) return;
+
+  const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+
+  let saved = null;
+  try {
+    const raw = sessionStorage.getItem(SIM_STORAGE_KEY);
+    saved = raw ? JSON.parse(raw) : null;
+  } catch (err) {
+    console.error('Gagal membaca simulasi tersimpan:', err);
+  }
+
+  if (!saved) return; // tidak ada data tersimpan -> box tetap hidden
+
+  const jenisLabel = saved.jenis === 'saham' ? 'Saham' : 'Obligasi';
+  metaEl.innerHTML =
+    `${jenisLabel}: <strong>${saved.namaTampil}</strong> • ` +
+    `Jumlah: ${saved.jumlah.toLocaleString('id-ID')} ${saved.satuan} • ` +
+    `Estimasi Pendanaan: ${rupiah(saved.estimasiPendanaan)}`;
+  box.hidden = false;
+
+  btnMuat.addEventListener('click', () => {
+    fSaham.value = `${jenisLabel}: ${saved.namaTampil} — ${saved.jumlah.toLocaleString('id-ID')} ${saved.satuan} (estimasi pendanaan ${rupiah(saved.estimasiPendanaan)})`;
+
+    if (fRencana && !fRencana.value.trim()) {
+      fRencana.value = `Mengajukan pendanaan REPO sekitar ${rupiah(saved.estimasiPendanaan)} berdasarkan hasil simulasi.`;
+    }
+
+    btnMuat.textContent = '✓ Data Dimuat ke Form';
+    fSaham.focus();
   });
 })();
 
