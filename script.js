@@ -160,7 +160,7 @@ if ('IntersectionObserver' in window) {
     document.getElementById('resultMeta').innerHTML = metaHTML;
     resultBox.hidden = false;
     btnSimpanSimulasi.hidden = false;
-    btnSimpanSimulasi.textContent = '💾 Simpan Simulasi Ini';
+    btnSimpanSimulasi.textContent = '💾 Simpan Simulasi Ini untuk Form Pengajuan';
     simSavedMsg.hidden = true;
     currentSimPayload = payload;
   }
@@ -172,6 +172,7 @@ if ('IntersectionObserver' in window) {
       simSavedMsg.textContent = '✓ Simulasi disimpan — scroll ke Form Pengajuan di bawah untuk memakainya.';
       simSavedMsg.hidden = false;
       btnSimpanSimulasi.textContent = '✓ Tersimpan';
+      window.dispatchEvent(new CustomEvent('repoSimulasiTersimpan', { detail: currentSimPayload }));
     } catch (err) {
       console.error('Gagal menyimpan simulasi ke sessionStorage:', err);
     }
@@ -457,10 +458,14 @@ if ('IntersectionObserver' in window) {
 
 /* ============================================================
    MUAT SIMULASI TERSIMPAN — ke Form Pengajuan
-   Membaca sessionStorage (diisi oleh tombol "Simpan Simulasi Ini" di
-   simulator), menampilkan ringkasannya, dan mengisi otomatis field
-   "Saham/Obligasi yang Diajukan" + "Rencana Pengajuan" kalau tombol
-   "Gunakan Data Ini di Form" diklik.
+   Membaca sessionStorage (diisi oleh tombol "Simpan Simulasi Ini untuk
+   Form Pengajuan" di simulator), menampilkan ringkasannya, dan mengisi
+   otomatis field "Saham/Obligasi yang Diajukan" + "Rencana Pengajuan"
+   kalau tombol "Gunakan Data Ini di Form" diklik.
+
+   Kotak ini di-refresh baik saat halaman pertama dimuat MAUPUN langsung
+   saat tombol simpan di simulator diklik (lewat custom event
+   'repoSimulasiTersimpan') — supaya muncul tanpa perlu reload halaman.
    ============================================================ */
 (function muatSimulasiTersimpan() {
   const SIM_STORAGE_KEY = 'repoSimulasiTersimpan';
@@ -472,25 +477,35 @@ if ('IntersectionObserver' in window) {
   if (!box || !metaEl || !btnMuat || !fSaham) return;
 
   const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
-
   let saved = null;
-  try {
-    const raw = sessionStorage.getItem(SIM_STORAGE_KEY);
-    saved = raw ? JSON.parse(raw) : null;
-  } catch (err) {
-    console.error('Gagal membaca simulasi tersimpan:', err);
+
+  function refreshBox() {
+    try {
+      const raw = sessionStorage.getItem(SIM_STORAGE_KEY);
+      saved = raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.error('Gagal membaca simulasi tersimpan:', err);
+      saved = null;
+    }
+
+    if (!saved) {
+      box.hidden = true;
+      return;
+    }
+
+    const jenisLabel = saved.jenis === 'saham' ? 'Saham' : 'Obligasi';
+    metaEl.innerHTML =
+      `${jenisLabel}: <strong>${saved.namaTampil}</strong> • ` +
+      `Jumlah: ${saved.jumlah.toLocaleString('id-ID')} ${saved.satuan} • ` +
+      `Estimasi Pendanaan: ${rupiah(saved.estimasiPendanaan)}`;
+    box.hidden = false;
+    btnMuat.textContent = 'Gunakan Data Ini di Form';
   }
 
-  if (!saved) return; // tidak ada data tersimpan -> box tetap hidden
-
-  const jenisLabel = saved.jenis === 'saham' ? 'Saham' : 'Obligasi';
-  metaEl.innerHTML =
-    `${jenisLabel}: <strong>${saved.namaTampil}</strong> • ` +
-    `Jumlah: ${saved.jumlah.toLocaleString('id-ID')} ${saved.satuan} • ` +
-    `Estimasi Pendanaan: ${rupiah(saved.estimasiPendanaan)}`;
-  box.hidden = false;
-
   btnMuat.addEventListener('click', () => {
+    if (!saved) return;
+    const jenisLabel = saved.jenis === 'saham' ? 'Saham' : 'Obligasi';
+
     fSaham.value = `${jenisLabel}: ${saved.namaTampil} — ${saved.jumlah.toLocaleString('id-ID')} ${saved.satuan} (estimasi pendanaan ${rupiah(saved.estimasiPendanaan)})`;
 
     if (fRencana && !fRencana.value.trim()) {
@@ -500,6 +515,9 @@ if ('IntersectionObserver' in window) {
     btnMuat.textContent = '✓ Data Dimuat ke Form';
     fSaham.focus();
   });
+
+  refreshBox(); // saat halaman pertama dimuat
+  window.addEventListener('repoSimulasiTersimpan', refreshBox); // saat tombol simpan di simulator diklik (live, tanpa refresh)
 })();
 
 /* ============================================================
