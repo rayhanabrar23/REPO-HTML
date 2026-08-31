@@ -519,10 +519,27 @@ if ('IntersectionObserver' in window) {
         );
       }).join('');
 
+      let label, value, metaHTML;
+
+      if (reverse) {
+        // Angka besar di mode reverse = jumlah lot/unit yang dibutuhkan (bukan Rupiah),
+        // karena itu yang sebenarnya dicari user di mode ini.
+        const bySatuan = {};
+        items.forEach((it) => { bySatuan[it.satuan] = (bySatuan[it.satuan] || 0) + it.jumlah; });
+        value = Object.entries(bySatuan).map(([sat, jml]) => `${jml.toLocaleString('id-ID')} ${sat}`).join(' + ');
+        label = items.length > 1 ? `Kebutuhan Jaminan (${items.length} Efek)` : 'Kebutuhan Jaminan';
+        metaHTML = `<strong>Total Estimasi Pendanaan: ${rupiah(totalEstimasiPendanaan)}</strong><br/>` + itemsHTML;
+      } else {
+        // Mode forward: angka besar = total estimasi pendanaan (Rupiah) — ini yang dicari user.
+        value = rupiah(totalEstimasiPendanaan);
+        label = items.length > 1 ? `Total Estimasi Pendanaan Gabungan (${items.length} Efek)` : 'Estimasi Nilai Pendanaan';
+        metaHTML = itemsHTML;
+      }
+
       showResult({
-        label: items.length > 1 ? `Total Estimasi Pendanaan Gabungan (${items.length} Efek)` : (reverse ? 'Kebutuhan Jaminan' : 'Estimasi Nilai Pendanaan'),
-        value: rupiah(totalEstimasiPendanaan),
-        metaHTML: itemsHTML,
+        label,
+        value,
+        metaHTML,
         payload: {
           mode: reverse ? 'dana-ke-lot' : 'lot-ke-dana',
           items,
