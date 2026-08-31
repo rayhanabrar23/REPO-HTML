@@ -1,238 +1,708 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pendanaan Transaksi REPO — PT Pendanaan Efek Indonesia</title>
-<meta name="description" content="Simulasi dan pengajuan Pendanaan Transaksi REPO untuk calon nasabah PT Pendanaan Efek Indonesia (PEI)." />
-<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
-<link rel="shortcut icon" type="image/png" href="assets/favicon-32.png" />
-<link rel="apple-touch-icon" sizes="180x180" href="assets/favicon-apple-touch.png" />
+/* ============================================================
+   CONFIG
+   ============================================================ */
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Roboto+Condensed:wght@300;400;500;600;700&family=Roboto+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+// Tambahkan dokumen di sini setelah file PDF di-upload ke assets/documents/
+// Setiap entri: { name: "Nama tampil", file: "nama-file.pdf" }
+const DOCUMENTS = [
+  { name: "FAQ Transaksi REPO", file: "faq-transaksi-repo.pdf" },
+  { name: "Peraturan OJK", file: "peraturan-ojk.pdf" },
+];
 
-<link rel="stylesheet" href="style.css" />
-</head>
-<body>
+// Kode saham untuk pita ticker. Dicoba ambil data live dari Yahoo Finance;
+// kalau gagal (endpoint tidak resmi, lihat catatan di js/market-data.js),
+// otomatis fallback ke arah dummy per-kode supaya ticker tidak pernah kosong.
+const TICKER_CODES = [
+  "BBCA", "BBRI", "BMRI", "TLKM", "ASII", "UNVR", "ANTM", "ICBP",
+  "GOTO", "ADRO", "PGAS", "SMGR", "INDF", "KLBF", "CPIN", "BRPT",
+];
+const TICKER_DUMMY_DIR = { // fallback kalau live fetch gagal
+  BBCA: "up", BBRI: "down", BMRI: "down", TLKM: "up", ASII: "up", UNVR: "up",
+  ANTM: "down", ICBP: "up", GOTO: "up", ADRO: "down", PGAS: "up", SMGR: "down",
+  INDF: "up", KLBF: "up", CPIN: "down", BRPT: "up",
+};
 
-<!-- ================= HEADER ================= -->
-<header class="site-header" id="siteHeader">
-  <div class="wrap header-inner">
-    <div class="brand">
-      <div class="brand-name">PT Pendanaan Efek Indonesia</div>
-      <div class="brand-sub">Portal Pendanaan Transaksi REPO</div>
-    </div>
-    <div class="logo-slot">
-      <img src="assets/logo.png" alt="Logo PEI" class="logo-img"
-           style="height:40px; width:auto; max-width:none;"
-           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-      <div class="logo-fallback" style="display:none;">PEI</div>
-    </div>
-  </div>
-</header>
+/* ============================================================
+   HEADER SCROLL STATE
+   ============================================================ */
+const header = document.getElementById('siteHeader');
+window.addEventListener('scroll', () => {
+  header.classList.toggle('scrolled', window.scrollY > 12);
+}, { passive: true });
 
-<main>
+/* ============================================================
+   SCROLL REVEAL
+   ============================================================ */
+const revealEls = document.querySelectorAll('.reveal');
+if ('IntersectionObserver' in window) {
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('is-visible');
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.12 });
+  revealEls.forEach(el => io.observe(el));
+} else {
+  revealEls.forEach(el => el.classList.add('is-visible'));
+}
 
-  <!-- ================= HERO ================= -->
-  <section class="hero">
-    <div class="wrap hero-inner reveal">
-      <span class="eyebrow">Produk PT Pendanaan Efek Indonesia</span>
-      <h1>Dapatkan Pendanaan<br/>dari portofolio Efek Anda.</h1>
-      <p class="hero-desc">
-        Transaksi Repurchase Agreement (<strong>Transaksi Repo</strong>) adalah kontrak jual
-        atau beli Efek dengan janji beli atau jual kembali pada waktu dan harga yang telah
-        ditetapkan. Jadikan saham dan/atau obligasi yang Anda miliki sebagai jaminan untuk
-        memperoleh pendanaan — cepat, transparan, dan sesuai ketentuan.
-      </p>
-      <div class="hero-cta">
-        <a href="#simulator" class="btn btn-primary">Mulai Simulasi</a>
-        <a href="#form" class="btn btn-ghost">Ajukan Sekarang</a>
+/* ============================================================
+   TICKER BAND — coba data live Yahoo Finance, fallback ke dummy per-kode
+   ============================================================ */
+(function buildTicker() {
+  const track = document.getElementById('tickerTrack');
+  if (!track) return;
+
+  const renderItems = (list) => list.map(t => `
+    <span class="ticker-item">
+      <span class="ticker-code">${t.code}</span>
+      <span class="${t.dir === 'up' ? 'ticker-up' : 'ticker-down'}">${t.dir === 'up' ? '▲' : '▼'}</span>
+      ${t.pct != null ? `<span class="${t.dir === 'up' ? 'ticker-up' : 'ticker-down'}" style="font-size:0.75rem;">${t.pct}%</span>` : ''}
+    </span>
+  `).join('');
+
+  // Render dummy dulu supaya ticker langsung tampil (tidak nunggu network)
+  const dummyList = TICKER_CODES.map((code) => ({ code, dir: TICKER_DUMMY_DIR[code] || 'up', pct: null }));
+  track.innerHTML = renderItems(dummyList) + renderItems(dummyList);
+
+  // Lalu coba upgrade ke data live di background (kalau berhasil, ticker di-refresh)
+  Promise.all(
+    TICKER_CODES.map((code) =>
+      MarketData.fetchStockMetrics(code)
+        .then((m) => {
+          if (m.error || m.prev_close == null) return { code, dir: TICKER_DUMMY_DIR[code] || 'up', pct: null };
+          const dir = m.latest_close >= m.prev_close ? 'up' : 'down';
+          const pct = (((m.latest_close - m.prev_close) / m.prev_close) * 100).toFixed(2);
+          return { code, dir, pct: Math.abs(pct) };
+        })
+        .catch(() => ({ code, dir: TICKER_DUMMY_DIR[code] || 'up', pct: null }))
+    )
+  ).then((liveList) => {
+    track.innerHTML = renderItems(liveList) + renderItems(liveList);
+  });
+})();
+
+/* ============================================================
+   DOCUMENTS GRID
+   ============================================================ */
+(function buildDocuments() {
+  const grid = document.getElementById('docGrid');
+  if (!grid) return;
+
+  if (DOCUMENTS.length === 0) {
+    grid.innerHTML = `
+      <div class="doc-empty">
+        Dokumen pendukung (PDF) belum tersedia — akan tampil otomatis di sini setelah
+        file ditambahkan ke folder <code>assets/documents/</code> dan didaftarkan di
+        <code>script.js</code> (variabel <code>DOCUMENTS</code>).
+      </div>`;
+    return;
+  }
+
+  grid.innerHTML = DOCUMENTS.map(doc => `
+    <a class="doc-card" href="assets/documents/${doc.file}" download>
+      <span class="doc-icon">PDF</span>
+      <span class="doc-name">${doc.name}</span>
+    </a>
+  `).join('');
+})();
+
+/* ============================================================
+   SIMULATOR — tersambung ke calc-engine.js asli (saham & obligasi)
+   Mendukung BANYAK EFEK sekaligus (jaminan gabungan) — user bisa
+   tambah baris efek sebanyak yang dibutuhkan lewat "+ Tambah Efek".
+   Field Kode Efek: ketik lalu pilih (datalist), bukan dropdown langsung.
+   ============================================================ */
+(function simulator() {
+  const btn = document.getElementById('btnHitung');
+  if (!btn) return;
+
+  const SIM_STORAGE_KEY = 'repoSimulasiTersimpan';
+
+  const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  const resultBox = document.getElementById('resultBox');
+  const warnMsg = document.getElementById('warnMsg');
+  const btnSimpanSimulasi = document.getElementById('btnSimpanSimulasi');
+  const simSavedMsg = document.getElementById('simSavedMsg');
+  const modeSel = document.getElementById('modeSimulasi');
+  const efekList = document.getElementById('efekList');
+  const btnTambahEfek = document.getElementById('btnTambahEfek');
+  const totalTargetBox = document.getElementById('totalTargetBox');
+  const totalTargetValue = document.getElementById('totalTargetValue');
+
+  let simData = null; // hasil DataLoader.loadAll()
+  let sahamOptions = []; // [{ kode_efek, display }]
+  let obligasiOptions = []; // [{ kode_efek, display, is_korporasi }]
+  let sahamMap = {};      // display -> kode_efek
+  let obligasiMap = {};   // display -> { kode_efek, is_korporasi }
+  let currentSimPayload = null; // data hasil hitung terakhir, siap disimpan ke sessionStorage
+  let rowIdCounter = 0;
+  const rows = new Map(); // rowId -> { el, jenisEl, kodeEl, datalistEl, jumlahField, jumlahInput, targetField, targetInput, risikoField, satuanLabelEl }
+
+  function isReverseMode() {
+    return modeSel.value === 'dana-ke-lot';
+  }
+
+  function resetResultUI() {
+    resultBox.hidden = true;
+    warnMsg.hidden = true;
+    btnSimpanSimulasi.hidden = true;
+    simSavedMsg.hidden = true;
+    currentSimPayload = null;
+  }
+
+  function showWarn(msg) {
+    warnMsg.textContent = msg;
+    warnMsg.hidden = false;
+    resultBox.hidden = true;
+    btnSimpanSimulasi.hidden = true;
+    simSavedMsg.hidden = true;
+    currentSimPayload = null;
+  }
+
+  function showResult({ label, value, metaHTML, payload }) {
+    document.getElementById('resultLabel').textContent = label;
+    document.getElementById('resultValue').textContent = value;
+    document.getElementById('resultMeta').innerHTML = metaHTML;
+    resultBox.hidden = false;
+    btnSimpanSimulasi.hidden = false;
+    btnSimpanSimulasi.textContent = '💾 Simpan Simulasi Ini untuk Form Pengajuan';
+    simSavedMsg.hidden = true;
+    currentSimPayload = payload;
+  }
+
+  btnSimpanSimulasi.addEventListener('click', () => {
+    if (!currentSimPayload) return;
+    try {
+      sessionStorage.setItem(SIM_STORAGE_KEY, JSON.stringify(currentSimPayload));
+      simSavedMsg.textContent = '✓ Simulasi disimpan — scroll ke Form Pengajuan di bawah untuk memakainya.';
+      simSavedMsg.hidden = false;
+      btnSimpanSimulasi.textContent = '✓ Tersimpan';
+      window.dispatchEvent(new CustomEvent('repoSimulasiTersimpan', { detail: currentSimPayload }));
+    } catch (err) {
+      console.error('Gagal menyimpan simulasi ke sessionStorage:', err);
+    }
+  });
+
+  // Cari kode efek dari nilai yang diketik user di field datalist.
+  function resolveKode(inputValue, map) {
+    const val = (inputValue || '').trim();
+    if (map[val]) return map[val];
+    const guess = val.split(/[-–—]/)[0].trim().toUpperCase();
+    return guess;
+  }
+
+  // ---- Hitung total kebutuhan dana (mode reverse) dari semua baris, live ----
+  function updateTotalTarget() {
+    if (!isReverseMode()) {
+      totalTargetBox.hidden = true;
+      return;
+    }
+    let total = 0;
+    let adaIsi = false;
+    rows.forEach((row) => {
+      const v = parseFloat(row.targetInput.value) || 0;
+      if (v > 0) adaIsi = true;
+      total += v;
+    });
+    if (!adaIsi) {
+      totalTargetBox.hidden = true;
+      return;
+    }
+    totalTargetValue.textContent = rupiah(total);
+    totalTargetBox.hidden = false;
+  }
+
+  // ---- Toggle field jumlah/target di semua baris sesuai mode global ----
+  function applyModeVisibilityAll() {
+    const reverse = isReverseMode();
+    btn.textContent = reverse ? 'Hitung Kebutuhan Lot/Unit' : 'Hitung Estimasi Pendanaan';
+    rows.forEach((row) => {
+      row.jumlahField.hidden = reverse;
+      row.targetField.hidden = !reverse;
+    });
+    updateTotalTarget();
+    resetResultUI();
+  }
+  modeSel.addEventListener('change', applyModeVisibilityAll);
+
+  // ---- Isi datalist baris sesuai jenis efek (saham/obligasi) yang dipilih ----
+  function fillRowDatalist(row) {
+    const jenis = row.jenisEl.value;
+    if (jenis === 'saham') {
+      row.datalistEl.innerHTML = sahamOptions.map((o) => `<option value="${o.display}"></option>`).join('');
+      row.kodeEl.placeholder = simData ? 'Ketik kode atau nama saham, lalu pilih...' : 'Memuat daftar saham...';
+      row.jumlahLabelEl.textContent = 'Jumlah Lot';
+      row.jumlahInput.step = '100';
+      row.jumlahInput.value = '100';
+      row.risikoField.hidden = true;
+    } else {
+      row.datalistEl.innerHTML = obligasiOptions.map((o) => `<option value="${o.display}"></option>`).join('');
+      row.kodeEl.placeholder = simData ? 'Ketik kode atau nama obligasi, lalu pilih...' : 'Memuat daftar obligasi...';
+      row.jumlahLabelEl.textContent = 'Jumlah Unit';
+      row.jumlahInput.step = '10';
+      row.jumlahInput.value = '100';
+    }
+    row.kodeEl.value = '';
+  }
+
+  function createRow() {
+    rowIdCounter += 1;
+    const id = rowIdCounter;
+
+    const wrap = document.createElement('div');
+    wrap.className = 'sim-grid efek-row';
+    wrap.dataset.rowId = String(id);
+    wrap.style.cssText = 'border:1px solid rgba(0,0,0,0.1); border-radius:10px; padding:1rem 1rem 0.6rem; margin-bottom:1rem; position:relative;';
+    wrap.innerHTML = `
+      <button type="button" class="btn-hapus-row" title="Hapus efek ini"
+              style="position:absolute; top:0.5rem; right:0.5rem; background:none; border:none; cursor:pointer; font-size:1.1rem; line-height:1; color:#888;">✕</button>
+      <div class="field">
+        <label>Jenis Efek</label>
+        <select class="row-jenis">
+          <option value="saham">Saham</option>
+          <option value="obligasi">Obligasi</option>
+        </select>
       </div>
-    </div>
-
-    <!-- Signature element: securities ticker strip -->
-    <div class="ticker-band" aria-hidden="true">
-      <div class="ticker-track" id="tickerTrack"><!-- populated by script.js --></div>
-    </div>
-  </section>
-
-  <!-- ================= DOCUMENTS ================= -->
-  <section class="section" id="documents">
-    <div class="wrap reveal">
-      <div class="section-head">
-        <span class="tag">Informasi</span>
-        <h2>Materi Edukasi Transaksi REPO</h2>
-        <p class="section-desc">Pelajari lebih lengkap seputar Transaksi Repurchase Agreement (REPO) melalui materi berikut sebelum mengajukan pendanaan.</p>
+      <div class="field" style="grid-column: span 2;">
+        <label>Kode Efek</label>
+        <input type="text" class="row-kode" list="dl-row-${id}" placeholder="Memuat daftar saham..." autocomplete="off" />
+        <datalist id="dl-row-${id}"></datalist>
       </div>
-      <div class="doc-grid" id="docGrid">
-        <!-- populated by script.js from DOCUMENTS array, or shows empty state -->
+      <div class="field row-jumlah-field">
+        <label class="row-jumlah-label">Jumlah Lot</label>
+        <input type="number" class="row-jumlah" min="1" step="100" value="100" />
       </div>
-
-      <p class="section-desc" style="margin-top:2rem;">
-        Informasi lebih lanjut terkait Transaksi Pendanaan REPO, silakan akses website resmi PEI.
-      </p>
-      <a class="site-link-card" href="https://www.pei.co.id/id" target="_blank" rel="noopener noreferrer"
-         style="display:flex; align-items:center; gap:1rem; margin-top:1rem; padding:1rem 1.25rem;
-                border:1px solid rgba(0,0,0,0.1); border-radius:12px; text-decoration:none; color:inherit;
-                background:#fff; max-width:640px;">
-        <img src="assets/logo.png" alt="Logo PEI" class="logo-img" style="width:52px; height:52px; object-fit:contain; flex-shrink:0;"
-             onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-        <div class="logo-fallback" style="display:none; width:52px; height:52px; flex-shrink:0; align-items:center; justify-content:center; font-weight:700;">PEI</div>
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:600; font-size:0.98rem;">PT Pendanaan Efek Indonesia — Website Resmi</div>
-          <div class="mono" style="font-size:0.82rem; color:var(--maroon-700, #7a1f2b); margin-top:0.15rem;">www.pei.co.id</div>
-          <div style="font-size:0.85rem; color:#555; margin-top:0.35rem;">
-            Profil perusahaan, produk pendanaan, berita, dan kegiatan terkini PEI.
-          </div>
-        </div>
-        <span style="flex-shrink:0; font-size:0.85rem; font-weight:600; white-space:nowrap;">Kunjungi ↗</span>
-      </a>
-    </div>
-  </section>
-
-  <!-- ================= SIMULATOR ================= -->
-  <section class="section section-alt" id="simulator">
-    <div class="wrap reveal">
-      <div class="section-head">
-        <span class="tag">Menu Utama</span>
-        <h2>Simulator Perhitungan REPO</h2>
-        <p class="section-desc">
-          Simulasikan estimasi nilai pendanaan dari saham/obligasi yang akan Anda jaminkan.
-          <em>Nilai simulasi merupakan estimasi awal, nilai final tetap melalui proses evaluasi &amp; persetujuan.</em>
-        </p>
+      <div class="field row-target-field" hidden>
+        <label>Kebutuhan Dana dari Efek Ini (Rp)</label>
+        <input type="number" class="row-target" min="0" step="1000000" placeholder="Contoh: 5000000000" />
       </div>
-
-      <div class="sim-card">
-        <div class="field" style="max-width:420px; margin-bottom:1.2rem;">
-          <label for="modeSimulasi">Jenis Simulasi</label>
-          <select id="modeSimulasi">
-            <option value="lot-ke-dana">Saya sudah tahu jumlah lot/unit → hitung estimasi pendanaan</option>
-            <option value="dana-ke-lot">Saya butuh dana sekian → hitung kebutuhan lot/unit</option>
-          </select>
+      <div class="field row-risiko-field" hidden style="grid-column: span 3;">
+        <label>Kategori Risiko (rating per seri belum tersedia — pilih manual)</label>
+        <div style="display:flex; gap:1.2rem; margin-top:0.3rem;">
+          <label style="display:flex; align-items:center; gap:0.4rem; font-weight:400; font-size:0.92rem;">
+            <input type="radio" name="risiko-${id}" value="Sedang" class="row-risiko" checked /> Sedang
+          </label>
+          <label style="display:flex; align-items:center; gap:0.4rem; font-weight:400; font-size:0.92rem;">
+            <input type="radio" name="risiko-${id}" value="Tinggi" class="row-risiko" /> Tinggi
+          </label>
         </div>
-
-        <p class="section-desc" style="margin-bottom:1rem;">
-          Bisa jaminkan lebih dari satu efek sekaligus — klik "+ Tambah Efek" untuk menambah baris.
-        </p>
-
-        <div id="efekList"><!-- baris efek diisi otomatis oleh script.js --></div>
-        <button type="button" class="btn" id="btnTambahEfek"
-                style="margin-top:0.4rem; background:#fff; color:var(--maroon-700, #7a1f2b); border:1.5px solid var(--maroon-700, #7a1f2b);">+ Tambah Efek</button>
-
-        <div class="result-box" id="totalTargetBox" hidden style="margin-top:1.2rem;">
-          <div class="result-label">Total Kebutuhan Dana (dijumlah dari semua efek di atas)</div>
-          <div class="result-value mono" id="totalTargetValue">Rp 0</div>
-        </div>
-
-        <button class="btn btn-primary btn-block" id="btnHitung" style="margin-top:1.2rem;">Hitung Estimasi Pendanaan</button>
-
-        <div class="result-box" id="resultBox" hidden>
-          <div class="result-label" id="resultLabel">Estimasi Nilai Pendanaan</div>
-          <div class="result-value mono" id="resultValue">Rp 0</div>
-          <div class="result-meta mono" id="resultMeta"></div>
-        </div>
-        <button type="button" class="btn" id="btnSimpanSimulasi" hidden
-                style="margin-top:0.8rem; background:#fff; color:var(--maroon-700, #7a1f2b); border:1.5px solid var(--maroon-700, #7a1f2b);">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
-        <p class="form-status ok" id="simSavedMsg" hidden style="margin-top:0.6rem;"></p>
-        <p class="warn-msg" id="warnMsg" hidden></p>
       </div>
-    </div>
-  </section>
+    `;
+    efekList.appendChild(wrap);
 
-  <!-- ================= FORM ================= -->
-  <section class="section" id="form">
-    <div class="wrap reveal">
-      <div class="section-head">
-        <span class="tag">Langkah Selanjutnya</span>
-        <h2>Form Pengajuan Calon Nasabah</h2>
-        <p class="section-desc">Sudah mendapatkan estimasi dari simulator? Lengkapi form berikut untuk melanjutkan proses pengajuan pendanaan.</p>
-      </div>
+    const row = {
+      id,
+      el: wrap,
+      jenisEl: wrap.querySelector('.row-jenis'),
+      kodeEl: wrap.querySelector('.row-kode'),
+      datalistEl: wrap.querySelector(`#dl-row-${id}`),
+      jumlahField: wrap.querySelector('.row-jumlah-field'),
+      jumlahLabelEl: wrap.querySelector('.row-jumlah-label'),
+      jumlahInput: wrap.querySelector('.row-jumlah'),
+      targetField: wrap.querySelector('.row-target-field'),
+      targetInput: wrap.querySelector('.row-target'),
+      risikoField: wrap.querySelector('.row-risiko-field'),
+    };
+    rows.set(id, row);
 
-      <div class="result-box" id="simulasiTersimpanBox" hidden style="margin-bottom:1.4rem;">
-        <div class="result-label">📌 Ada Data Simulasi Tersimpan</div>
-        <div class="result-meta mono" id="simulasiTersimpanMeta"></div>
-        <button type="button" class="btn btn-primary" id="btnMuatSimulasi" style="margin-top:0.8rem;">Gunakan Data Ini di Form</button>
-      </div>
+    fillRowDatalist(row);
+    row.jumlahField.hidden = isReverseMode();
+    row.targetField.hidden = !isReverseMode();
 
-      <form class="sub-card" id="pengajuanForm">
-        <input type="hidden" name="access_key" value="a0179065-75c4-4c79-9502-e3239e5c6067" />
-        <input type="hidden" name="subject" value="Pengajuan Baru — Portal REPO PEI" />
-        <input type="hidden" name="from_name" value="Portal Pendanaan REPO PEI" />
-        <input type="checkbox" name="botcheck" style="display:none" tabindex="-1" autocomplete="off" />
+    row.jenisEl.addEventListener('change', () => {
+      fillRowDatalist(row);
+      resetResultUI();
+    });
 
-        <div class="field">
-          <label for="fNama">Nama Nasabah *</label>
-          <input type="text" id="fNama" name="Nama Nasabah" required />
-        </div>
-        <div class="field">
-          <label for="fEmail">Email Aktif *</label>
-          <input type="email" id="fEmail" name="Email" placeholder="nama@email.com" required />
-        </div>
-        <div class="field">
-          <label for="fWhatsapp">No. WhatsApp *</label>
-          <input type="tel" id="fWhatsapp" name="No. WhatsApp" inputmode="numeric" pattern="[0-9+ ]{8,15}" placeholder="Contoh: 081234567890" required />
-        </div>
-        <div class="field">
-          <label for="fBroker">Broker yang Dipakai *</label>
-          <input type="text" id="fBroker" name="Broker" list="dlBroker" placeholder="Ketik nama broker, lalu pilih..." autocomplete="off" required />
-          <datalist id="dlBroker"></datalist>
-        </div>
-        <div class="field">
-          <label for="fTenor">Rencana Tenor *</label>
-          <select id="fTenor" name="Rencana Tenor" required>
-            <option value="">Pilih tenor...</option>
-            <option value="1 Bulan">1 Bulan</option>
-            <option value="2 Bulan">2 Bulan</option>
-            <option value="3 Bulan">3 Bulan</option>
-            <option value="4 Bulan">4 Bulan</option>
-            <option value="5 Bulan">5 Bulan</option>
-            <option value="6 Bulan">6 Bulan</option>
-          </select>
-          <p style="font-size:0.85rem; color:#666; margin-top:0.4rem;">
-            Catatan: tenor dapat diperpanjang (rollover) hingga maksimal total 1 (satu) tahun.
-          </p>
-        </div>
-        <div class="field">
-          <label for="fRencana">Rencana Pengajuan *</label>
-          <textarea id="fRencana" name="Rencana Pengajuan" rows="3" placeholder="Jelaskan singkat kebutuhan pendanaan Anda" required></textarea>
-        </div>
-        <div class="field">
-          <label for="fSaham">Saham/Obligasi yang Diajukan *</label>
-          <textarea id="fSaham" name="Saham/Obligasi Diajukan" rows="3" placeholder="Contoh: BBCA 10.000 lembar, Obligasi ABC Seri A Rp500.000.000" required></textarea>
-        </div>
+    row.kodeEl.addEventListener('input', () => {
+      if (row.jenisEl.value === 'obligasi') {
+        const entry = obligasiMap[row.kodeEl.value.trim()];
+        row.risikoField.hidden = !(entry && entry.is_korporasi === true);
+      }
+      resetResultUI();
+    });
 
-        <button type="submit" class="btn btn-primary btn-block" id="btnSubmit">Kirim Pengajuan</button>
+    row.targetInput.addEventListener('input', () => {
+      updateTotalTarget();
+      resetResultUI();
+    });
+    row.jumlahInput.addEventListener('input', resetResultUI);
 
-        <p class="form-status" id="formStatus" hidden></p>
-      </form>
-    </div>
-  </section>
+    wrap.querySelector('.btn-hapus-row').addEventListener('click', () => {
+      rows.delete(id);
+      wrap.remove();
+      updateTotalTarget();
+      resetResultUI();
+    });
 
-</main>
+    return row;
+  }
 
-<!-- ================= FOOTER ================= -->
-<footer class="site-footer">
-  <div class="wrap footer-inner">
-    <div class="logo-slot footer-logo">
-      <img src="assets/logo-putih.png" alt="Logo PEI" class="logo-img"
-           style="height:44px; width:auto; max-width:none;"
-           onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
-      <div class="logo-fallback" style="display:none;">PEI</div>
-    </div>
-    <div class="footer-company">PT Pendanaan Efek Indonesia</div>
-    <div class="footer-address">
-      Indonesia Stock Exchange Building Tower I, 3rd Floor Suite 301<br/>
-      Jl. Jend. Sudirman Kav. 52-53, Jakarta 12190
-    </div>
-  </div>
-</footer>
+  btnTambahEfek.addEventListener('click', () => createRow());
 
-<script src="js/data-loader.js"></script>
-<script src="js/calc-engine.js"></script>
-<script src="js/market-data.js"></script>
-<script src="script.js"></script>
-</body>
-</html>
+  // ---- Load data referensi & isi datalist semua baris yang sudah ada ----
+  DataLoader.loadAll()
+    .then((data) => {
+      simData = data;
+      sahamOptions = DataLoader.getSahamOptions(data);
+      sahamMap = {};
+      sahamOptions.forEach((o) => { sahamMap[o.display] = o.kode_efek; });
+
+      obligasiOptions = DataLoader.getObligasiOptions(data);
+      obligasiMap = {};
+      obligasiOptions.forEach((o) => {
+        obligasiMap[o.display] = { kode_efek: o.kode_efek, is_korporasi: o.is_korporasi === true || o.is_korporasi === 'true' };
+      });
+
+      rows.forEach((row) => fillRowDatalist(row));
+    })
+    .catch((err) => {
+      rows.forEach((row) => {
+        row.kodeEl.placeholder = 'Gagal memuat data';
+        row.kodeEl.disabled = true;
+      });
+      console.error('Gagal memuat data referensi simulator:', err);
+    });
+
+  // Mulai dengan 1 baris efek
+  createRow();
+
+  // ---- Hitung SEMUA baris efek sekaligus ----
+  btn.addEventListener('click', async () => {
+    if (!simData) {
+      showWarn('Data referensi masih dimuat, mohon tunggu sebentar lalu coba lagi.');
+      return;
+    }
+    if (rows.size === 0) {
+      showWarn('Tambahkan minimal satu efek terlebih dahulu.');
+      return;
+    }
+    warnMsg.hidden = true;
+    const reverse = isReverseMode();
+    const origLabel = btn.textContent;
+    btn.disabled = true;
+
+    try {
+      const items = []; // hasil per-baris, siap ditampilkan & disimpan
+      let rowIndex = 0;
+
+      for (const row of rows.values()) {
+        rowIndex += 1;
+        const jenis = row.jenisEl.value;
+        const namaTampil = row.kodeEl.value.trim();
+
+        if (jenis === 'saham') {
+          const kodeSaham = resolveKode(namaTampil, sahamMap);
+
+          if (!reverse) {
+            const jumlahLot = parseInt(row.jumlahInput.value, 10) || 0;
+            if (!kodeSaham || jumlahLot <= 0) {
+              showWarn(`Efek #${rowIndex}: mohon pilih kode saham dan isi jumlah lot terlebih dahulu.`);
+              return;
+            }
+            btn.textContent = `Mengambil data harga ${kodeSaham}...`;
+            const marketMetrics = await MarketData.fetchStockMetrics(kodeSaham);
+            if (marketMetrics.error) { showWarn(`Efek #${rowIndex} (${kodeSaham}): ${marketMetrics.error}`); return; }
+
+            const instrumentRow = simData.instrumentByKode[kodeSaham];
+            const haircutRow = simData.haircutKpei[kodeSaham];
+            const listedFfRow = simData.listedFreefloat[kodeSaham];
+            if (!instrumentRow || !haircutRow || !listedFfRow) {
+              showWarn(`Efek #${rowIndex}: data pendukung untuk ${kodeSaham} tidak lengkap. Pastikan kode dipilih dari daftar yang muncul.`);
+              return;
+            }
+
+            const result = CalcEngine.simulateStockFunding({ kodeSaham, jumlahLot, marketMetrics, instrumentRow, haircutRow, listedFfRow });
+            if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
+
+            items.push({
+              jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
+              jumlah: jumlahLot, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan,
+              detailHTML:
+                `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • ` +
+                `Group: ${result.group} • Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+                (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : ''),
+            });
+
+          } else {
+            const targetPendanaan = parseFloat(row.targetInput.value) || 0;
+            if (!kodeSaham || targetPendanaan <= 0) {
+              showWarn(`Efek #${rowIndex}: mohon pilih kode saham dan isi kebutuhan dana terlebih dahulu.`);
+              return;
+            }
+            btn.textContent = `Mengambil data harga ${kodeSaham}...`;
+            const marketMetrics = await MarketData.fetchStockMetrics(kodeSaham);
+            if (marketMetrics.error) { showWarn(`Efek #${rowIndex} (${kodeSaham}): ${marketMetrics.error}`); return; }
+
+            const instrumentRow = simData.instrumentByKode[kodeSaham];
+            const haircutRow = simData.haircutKpei[kodeSaham];
+            const listedFfRow = simData.listedFreefloat[kodeSaham];
+            if (!instrumentRow || !haircutRow || !listedFfRow) {
+              showWarn(`Efek #${rowIndex}: data pendukung untuk ${kodeSaham} tidak lengkap. Pastikan kode dipilih dari daftar yang muncul.`);
+              return;
+            }
+
+            const result = CalcEngine.computeRequiredStockLots({ kodeSaham, targetPendanaan, marketMetrics, instrumentRow, haircutRow, listedFfRow });
+            if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
+
+            items.push({
+              jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
+              jumlah: result.jumlah_lot_dibutuhkan, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan_aktual,
+              detailHTML:
+                `Jumlah Lembar: ${result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • ` +
+                `Group: ${result.group} • Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+                (result.kena_cap
+                  ? `<br/><span style="color:var(--maroon-700)">⚠ Kebutuhan dana untuk efek ini melebihi batas maksimum saham ini ` +
+                    `(maks. sekitar ${rupiah(result.max_pendanaan_dari_cap)}).</span>`
+                  : ''),
+            });
+          }
+
+        } else {
+          const kodeObligasi = resolveKode(namaTampil, Object.fromEntries(
+            Object.entries(obligasiMap).map(([k, v]) => [k, v.kode_efek])
+          ));
+          const bondRow = simData.statisEfek[kodeObligasi];
+          const kategoriRisikoKorporasi = row.risikoField.querySelector('input[type="radio"]:checked')?.value || 'Sedang';
+
+          if (!bondRow) {
+            showWarn(`Efek #${rowIndex}: data obligasi ${kodeObligasi || '(belum dipilih)'} tidak ditemukan. Pastikan kode dipilih dari daftar yang muncul.`);
+            return;
+          }
+
+          if (!reverse) {
+            const jumlahUnit = parseInt(row.jumlahInput.value, 10) || 0;
+            if (!kodeObligasi || jumlahUnit <= 0) {
+              showWarn(`Efek #${rowIndex}: mohon pilih kode obligasi dan isi jumlah unit terlebih dahulu.`);
+              return;
+            }
+            const result = CalcEngine.simulateBondFunding({ kodeObligasi, jumlahUnit, bondRow, kategoriRisikoKorporasi });
+            if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
+
+            items.push({
+              jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
+              jumlah: jumlahUnit, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan,
+              detailHTML: `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`,
+            });
+
+          } else {
+            const targetPendanaan = parseFloat(row.targetInput.value) || 0;
+            if (!kodeObligasi || targetPendanaan <= 0) {
+              showWarn(`Efek #${rowIndex}: mohon pilih kode obligasi dan isi kebutuhan dana terlebih dahulu.`);
+              return;
+            }
+            const result = CalcEngine.computeRequiredBondUnits({ kodeObligasi, targetPendanaan, bondRow, kategoriRisikoKorporasi });
+            if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
+
+            items.push({
+              jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
+              jumlah: result.jumlah_unit_dibutuhkan, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan_aktual,
+              detailHTML: `Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`,
+            });
+          }
+        }
+      }
+
+      // ---- Gabungkan hasil semua baris ----
+      const totalEstimasiPendanaan = items.reduce((sum, it) => sum + it.estimasiPendanaan, 0);
+      const itemsHTML = items.map((it, i) => {
+        const jenisLabel = it.jenis === 'saham' ? 'Saham' : 'Obligasi';
+        const jumlahLabel = reverse ? `${it.jumlah.toLocaleString('id-ID')} ${it.satuan} dibutuhkan` : `${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`;
+        return (
+          `<div style="margin-top:${i === 0 ? '0' : '0.8rem'}; padding-top:${i === 0 ? '0' : '0.8rem'}; ${i === 0 ? '' : 'border-top:1px dashed rgba(0,0,0,0.12);'}">` +
+          `<strong>#${i + 1} — ${jenisLabel}: ${it.namaTampil}</strong> (${jumlahLabel}) • Estimasi Pendanaan: ${rupiah(it.estimasiPendanaan)}<br/>` +
+          `<span style="font-size:0.85rem;">${it.detailHTML}</span>` +
+          `</div>`
+        );
+      }).join('');
+
+      let label, value, metaHTML;
+
+      if (reverse) {
+        // Angka besar di mode reverse = jumlah lot/unit yang dibutuhkan (bukan Rupiah),
+        // karena itu yang sebenarnya dicari user di mode ini.
+        const bySatuan = {};
+        items.forEach((it) => { bySatuan[it.satuan] = (bySatuan[it.satuan] || 0) + it.jumlah; });
+        value = Object.entries(bySatuan).map(([sat, jml]) => `${jml.toLocaleString('id-ID')} ${sat}`).join(' + ');
+        label = items.length > 1 ? `Kebutuhan Jaminan (${items.length} Efek)` : 'Kebutuhan Jaminan';
+        metaHTML = `<strong>Total Estimasi Pendanaan: ${rupiah(totalEstimasiPendanaan)}</strong><br/>` + itemsHTML;
+      } else {
+        // Mode forward: angka besar = total estimasi pendanaan (Rupiah) — ini yang dicari user.
+        value = rupiah(totalEstimasiPendanaan);
+        label = items.length > 1 ? `Total Estimasi Pendanaan Gabungan (${items.length} Efek)` : 'Estimasi Nilai Pendanaan';
+        metaHTML = itemsHTML;
+      }
+
+      showResult({
+        label,
+        value,
+        metaHTML,
+        payload: {
+          mode: reverse ? 'dana-ke-lot' : 'lot-ke-dana',
+          items,
+          totalEstimasiPendanaan,
+          timestamp: Date.now(),
+        },
+      });
+
+    } catch (err) {
+      showWarn(`Terjadi kendala saat menghitung: ${err.message}`);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origLabel;
+    }
+  });
+})();
+
+/* ============================================================
+   MUAT SIMULASI TERSIMPAN — ke Form Pengajuan
+   Membaca sessionStorage (diisi oleh tombol "Simpan Simulasi Ini untuk
+   Form Pengajuan" di simulator), menampilkan ringkasannya, dan mengisi
+   otomatis field "Saham/Obligasi yang Diajukan" + "Rencana Pengajuan"
+   kalau tombol "Gunakan Data Ini di Form" diklik.
+
+   Kotak ini di-refresh baik saat halaman pertama dimuat MAUPUN langsung
+   saat tombol simpan di simulator diklik (lewat custom event
+   'repoSimulasiTersimpan') — supaya muncul tanpa perlu reload halaman.
+   ============================================================ */
+(function muatSimulasiTersimpan() {
+  const SIM_STORAGE_KEY = 'repoSimulasiTersimpan';
+  const box = document.getElementById('simulasiTersimpanBox');
+  const metaEl = document.getElementById('simulasiTersimpanMeta');
+  const btnMuat = document.getElementById('btnMuatSimulasi');
+  const fSaham = document.getElementById('fSaham');
+  const fRencana = document.getElementById('fRencana');
+  if (!box || !metaEl || !btnMuat || !fSaham) return;
+
+  const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  let saved = null;
+
+  function refreshBox() {
+    try {
+      const raw = sessionStorage.getItem(SIM_STORAGE_KEY);
+      saved = raw ? JSON.parse(raw) : null;
+    } catch (err) {
+      console.error('Gagal membaca simulasi tersimpan:', err);
+      saved = null;
+    }
+
+    // Format lama (satu efek, tanpa "items") sudah tidak didukung — abaikan saja.
+    if (!saved || !Array.isArray(saved.items) || saved.items.length === 0) {
+      box.hidden = true;
+      saved = null;
+      return;
+    }
+
+    const ringkasanPerEfek = saved.items
+      .map((it) => `${it.jenis === 'saham' ? 'Saham' : 'Obligasi'} ${it.namaTampil} (${it.jumlah.toLocaleString('id-ID')} ${it.satuan})`)
+      .join(' + ');
+
+    metaEl.innerHTML =
+      `${saved.items.length} efek: <strong>${ringkasanPerEfek}</strong><br/>` +
+      `Total Estimasi Pendanaan: ${rupiah(saved.totalEstimasiPendanaan)}`;
+    box.hidden = false;
+    btnMuat.textContent = 'Gunakan Data Ini di Form';
+  }
+
+  btnMuat.addEventListener('click', () => {
+    if (!saved) return;
+
+    const daftarEfek = saved.items
+      .map((it) => `${it.jenis === 'saham' ? 'Saham' : 'Obligasi'}: ${it.namaTampil} — ${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`)
+      .join('\n');
+    fSaham.value = `${daftarEfek}\nTotal Estimasi Pendanaan Gabungan: ${rupiah(saved.totalEstimasiPendanaan)}`;
+
+    if (fRencana && !fRencana.value.trim()) {
+      fRencana.value = `Mengajukan pendanaan REPO sekitar ${rupiah(saved.totalEstimasiPendanaan)} (${saved.items.length} efek) berdasarkan hasil simulasi.`;
+    }
+
+    btnMuat.textContent = '✓ Data Dimuat ke Form';
+    fSaham.focus();
+  });
+
+  refreshBox(); // saat halaman pertama dimuat
+  window.addEventListener('repoSimulasiTersimpan', refreshBox); // saat tombol simpan di simulator diklik (live, tanpa refresh)
+})();
+
+/* ============================================================
+   BROKER DATALIST (form pengajuan) — ketik lalu pilih, dari data/broker.json
+   Format broker.json: [{ "broker_code": "...", "broker_name": "..." }, ...]
+   ============================================================ */
+(function buildBrokerDatalist() {
+  const dl = document.getElementById('dlBroker');
+  const input = document.getElementById('fBroker');
+  if (!dl || !input) return;
+
+  fetch('data/broker.json')
+    .then((res) => {
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      return res.json();
+    })
+    .then((brokers) => {
+      dl.innerHTML = brokers
+        .map((b) => `<option value="${b.broker_code} — ${b.broker_name}"></option>`)
+        .join('');
+    })
+    .catch((err) => {
+      console.error('Gagal memuat daftar broker (data/broker.json):', err);
+      // Input tetap bisa diisi manual walau daftar broker gagal dimuat.
+    });
+})();
+
+/* ============================================================
+   FORM SUBMISSION — via Web3Forms (gratis, tanpa backend)
+   Daftar & ambil access key gratis di https://web3forms.com
+   lalu ganti value pada <input name="access_key"> di index.html
+   ============================================================ */
+(function formHandler() {
+  const form = document.getElementById('pengajuanForm');
+  if (!form) return;
+
+  const statusEl = document.getElementById('formStatus');
+  const btnSubmit = document.getElementById('btnSubmit');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const accessKey = form.querySelector('input[name="access_key"]').value;
+    if (!accessKey || accessKey.includes('GANTI_DENGAN')) {
+      statusEl.hidden = false;
+      statusEl.className = 'form-status err';
+      statusEl.textContent = 'Form belum terhubung ke layanan email — access_key belum diisi. Hubungi admin portal.';
+      return;
+    }
+
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = 'Mengirim...';
+
+    try {
+      const formData = new FormData(form);
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: formData,
+      });
+      const result = await res.json();
+
+      statusEl.hidden = false;
+      if (result.success) {
+        statusEl.className = 'form-status ok';
+        statusEl.textContent = 'Pengajuan berhasil dikirim! Tim kami akan segera menghubungi Anda.';
+        form.reset();
+      } else {
+        statusEl.className = 'form-status err';
+        statusEl.textContent = 'Pengajuan tercatat, namun notifikasi email gagal terkirim. Coba lagi nanti.';
+      }
+    } catch (err) {
+      statusEl.hidden = false;
+      statusEl.className = 'form-status err';
+      statusEl.textContent = 'Terjadi kendala koneksi. Mohon periksa internet Anda dan coba lagi.';
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Kirim Pengajuan';
+    }
+  });
+})();
