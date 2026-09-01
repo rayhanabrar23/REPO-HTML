@@ -377,6 +377,11 @@ if ('IntersectionObserver' in window) {
       const items = []; // hasil per-baris, siap ditampilkan & disimpan
       let rowIndex = 0;
 
+      const tableRow = (label, val, bold) => (
+        `<tr><td style="text-align:left; padding:0.3rem 0.8rem 0.3rem 0; color:var(--gray-600, #666); white-space:nowrap;">${label}</td>` +
+        `<td style="text-align:right; padding:0.3rem 0; ${bold ? 'font-weight:700;' : ''}">${val}</td></tr>`
+      );
+
       for (const row of rows.values()) {
         rowIndex += 1;
         const jenis = row.jenisEl.value;
@@ -409,10 +414,12 @@ if ('IntersectionObserver' in window) {
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
               jumlah: jumlahLot, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.group,
-              detailHTML:
-                `Harga Penutupan Terakhir: ${rupiah(marketMetrics.latest_close)} • ` +
-                `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group}` +
-                (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : ''),
+              detailRows:
+                tableRow('Harga Penutupan Terakhir', rupiah(marketMetrics.latest_close)) +
+                tableRow('Nilai Jaminan', rupiah(result.nilai_jaminan_final)) +
+                tableRow('Rasio', `${(result.recommended_ratio * 100).toFixed(0)}%`) +
+                tableRow('Group', result.group) +
+                (result.kena_cap ? tableRow('⚠ Catatan', `<span style="color:var(--maroon-700)">Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>`) : ''),
             });
 
           } else {
@@ -439,12 +446,13 @@ if ('IntersectionObserver' in window) {
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
               jumlah: result.jumlah_lot_dibutuhkan, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.group,
-              detailHTML:
-                `Harga Penutupan Terakhir: ${rupiah(marketMetrics.latest_close)} • ` +
-                `Jumlah Lembar: ${result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group}` +
+              detailRows:
+                tableRow('Harga Penutupan Terakhir', rupiah(marketMetrics.latest_close)) +
+                tableRow('Jumlah Lembar', result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')) +
+                tableRow('Rasio', `${(result.recommended_ratio * 100).toFixed(0)}%`) +
+                tableRow('Group', result.group) +
                 (result.kena_cap
-                  ? `<br/><span style="color:var(--maroon-700)">⚠ Kebutuhan dana untuk efek ini melebihi batas maksimum saham ini ` +
-                    `(maks. sekitar ${rupiah(result.max_pendanaan_dari_cap)}).</span>`
+                  ? tableRow('⚠ Catatan', `<span style="color:var(--maroon-700)">Kebutuhan dana melebihi batas maksimum saham ini (maks. sekitar ${rupiah(result.max_pendanaan_dari_cap)}).</span>`)
                   : ''),
             });
           }
@@ -472,7 +480,10 @@ if ('IntersectionObserver' in window) {
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
               jumlah: jumlahUnit, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.jenis_obligasi,
-              detailHTML: `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi}`,
+              detailRows:
+                tableRow('Nilai Jaminan', rupiah(result.nilai_jaminan)) +
+                tableRow('Rasio', `${(result.rasio * 100).toFixed(0)}%`) +
+                tableRow('Jenis', result.jenis_obligasi),
             });
 
           } else {
@@ -487,7 +498,9 @@ if ('IntersectionObserver' in window) {
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
               jumlah: result.jumlah_unit_dibutuhkan, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.jenis_obligasi,
-              detailHTML: `Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi}`,
+              detailRows:
+                tableRow('Rasio', `${(result.rasio * 100).toFixed(0)}%`) +
+                tableRow('Jenis', result.jenis_obligasi),
             });
           }
         }
@@ -519,24 +532,34 @@ if ('IntersectionObserver' in window) {
       const itemsHTML = items.map((it, i) => {
         const jenisLabel = it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi';
         const jumlahLabel = reverse ? `${it.jumlah.toLocaleString('id-ID')} ${it.satuan} dibutuhkan` : `${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`;
-        const bungaHTML = it.bunga.error
-          ? `<br/><span style="color:var(--maroon-700)">⚠ ${it.bunga.error}</span>`
-          : `<br/>Bunga: ${(it.bunga.rate_annual * 100).toFixed(0)}% p.a. • Bunga per Bulan: ${rupiah(it.bunga.bunga_per_bulan)} • ` +
-            `Total Bunga (${tenorBulan} bulan): ${rupiah(it.bunga.total_bunga)} • ` +
-            `<strong>Total Dikembalikan: ${rupiah(it.bunga.total_pengembalian)}</strong>`;
+
+        const bungaRows = it.bunga.error
+          ? tableRow('⚠ Bunga', `<span style="color:var(--maroon-700)">${it.bunga.error}</span>`)
+          : tableRow('Bunga (p.a.)', `${(it.bunga.rate_annual * 100).toFixed(0)}%`) +
+            tableRow('Bunga per Bulan', rupiah(it.bunga.bunga_per_bulan)) +
+            tableRow(`Total Bunga (${tenorBulan} bulan)`, rupiah(it.bunga.total_bunga)) +
+            tableRow('Total yang Harus Dibayar', rupiah(it.bunga.total_pengembalian), true);
+
         return (
-          `<div style="margin-top:${i === 0 ? '0' : '0.8rem'}; padding-top:${i === 0 ? '0' : '0.8rem'}; ${i === 0 ? '' : 'border-top:1px dashed rgba(0,0,0,0.12);'}">` +
-          `<strong>#${i + 1} — ${jenisLabel}: ${it.namaTampil}</strong> (${jumlahLabel}) • Estimasi Pendanaan: ${rupiah(it.estimasiPendanaan)}<br/>` +
-          `<span style="font-size:0.85rem;">${it.detailHTML}${bungaHTML}</span>` +
+          `<div style="margin-top:${i === 0 ? '0' : '1.1rem'}; padding-top:${i === 0 ? '0' : '1.1rem'}; ${i === 0 ? '' : 'border-top:1px dashed rgba(0,0,0,0.12);'} text-align:left;">` +
+          `<div style="font-weight:700; margin-bottom:0.4rem;">#${i + 1} — ${jenisLabel}: ${it.namaTampil} (${jumlahLabel})</div>` +
+          `<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">` +
+          tableRow('Estimasi Pendanaan', rupiah(it.estimasiPendanaan)) +
+          it.detailRows +
+          bungaRows +
+          `</table>` +
           `</div>`
         );
       }).join('');
 
       const ringkasanBungaHTML = adaRateTidakDitemukan
         ? ''
-        : `<div style="margin-top:0.8rem; padding-top:0.8rem; border-top:2px solid rgba(0,0,0,0.15);">` +
-          `<strong>Ringkasan Kewajiban Pembayaran (Tenor ${tenorBulan} Bulan)</strong><br/>` +
-          `Total Bunga: ${rupiah(totalBungaSemua)} • <strong>Total Harus Dikembalikan di Akhir Tenor: ${rupiah(totalPengembalianSemua)}</strong>` +
+        : `<div style="margin-top:1.1rem; padding-top:1.1rem; border-top:2px solid rgba(0,0,0,0.15); text-align:left;">` +
+          `<div style="font-weight:700; margin-bottom:0.4rem;">Ringkasan Kewajiban Pembayaran (Tenor ${tenorBulan} Bulan)</div>` +
+          `<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">` +
+          tableRow('Total Bunga', rupiah(totalBungaSemua)) +
+          tableRow('Total yang Harus Dibayar di Akhir Tenor', rupiah(totalPengembalianSemua), true) +
+          `</table>` +
           `</div>`;
 
       let label, value, metaHTML;
@@ -548,7 +571,10 @@ if ('IntersectionObserver' in window) {
         items.forEach((it) => { bySatuan[it.satuan] = (bySatuan[it.satuan] || 0) + it.jumlah; });
         value = Object.entries(bySatuan).map(([sat, jml]) => `${jml.toLocaleString('id-ID')} ${sat}`).join(' + ');
         label = items.length > 1 ? `Kebutuhan Jaminan (${items.length} Efek)` : 'Kebutuhan Jaminan';
-        metaHTML = `<strong>Total Estimasi Pendanaan: ${rupiah(totalEstimasiPendanaan)}</strong><br/>` + itemsHTML + ringkasanBungaHTML;
+        metaHTML =
+          `<table style="width:100%; border-collapse:collapse; font-size:0.85rem; text-align:left; margin-bottom:0.6rem;">` +
+          tableRow('Total Estimasi Pendanaan', rupiah(totalEstimasiPendanaan), true) +
+          `</table>` + itemsHTML + ringkasanBungaHTML;
       } else {
         // Mode forward: angka besar = total estimasi pendanaan (Rupiah) — ini yang dicari user.
         value = rupiah(totalEstimasiPendanaan);
