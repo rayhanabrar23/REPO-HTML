@@ -122,11 +122,13 @@ if ('IntersectionObserver' in window) {
   const SIM_STORAGE_KEY = 'repoSimulasiTersimpan';
 
   const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  const parseRupiahInput = (str) => parseFloat((str || '').replace(/\D/g, '')) || 0;
   const resultBox = document.getElementById('resultBox');
   const warnMsg = document.getElementById('warnMsg');
   const btnSimpanSimulasi = document.getElementById('btnSimpanSimulasi');
   const simSavedMsg = document.getElementById('simSavedMsg');
   const modeSel = document.getElementById('modeSimulasi');
+  const tenorSel = document.getElementById('tenorSimulasi');
   const efekList = document.getElementById('efekList');
   const btnTambahEfek = document.getElementById('btnTambahEfek');
   const totalTargetBox = document.getElementById('totalTargetBox');
@@ -203,7 +205,7 @@ if ('IntersectionObserver' in window) {
     let total = 0;
     let adaIsi = false;
     rows.forEach((row) => {
-      const v = parseFloat(row.targetInput.value) || 0;
+      const v = parseRupiahInput(row.targetInput.value);
       if (v > 0) adaIsi = true;
       total += v;
     });
@@ -262,7 +264,7 @@ if ('IntersectionObserver' in window) {
       <div class="field">
         <label>Jenis Efek</label>
         <select class="row-jenis">
-          <option value="saham">Saham</option>
+          <option value="saham">Saham/ETF</option>
           <option value="obligasi">Obligasi</option>
         </select>
       </div>
@@ -277,18 +279,7 @@ if ('IntersectionObserver' in window) {
       </div>
       <div class="field row-target-field" hidden>
         <label>Kebutuhan Dana dari Efek Ini (Rp)</label>
-        <input type="number" class="row-target" min="0" step="1000000" placeholder="Contoh: 5000000000" />
-      </div>
-      <div class="field row-risiko-field" hidden style="grid-column: span 3;">
-        <label>Kategori Risiko (rating per seri belum tersedia — pilih manual)</label>
-        <div style="display:flex; gap:1.2rem; margin-top:0.3rem;">
-          <label style="display:flex; align-items:center; gap:0.4rem; font-weight:400; font-size:0.92rem;">
-            <input type="radio" name="risiko-${id}" value="Sedang" class="row-risiko" checked /> Sedang
-          </label>
-          <label style="display:flex; align-items:center; gap:0.4rem; font-weight:400; font-size:0.92rem;">
-            <input type="radio" name="risiko-${id}" value="Tinggi" class="row-risiko" /> Tinggi
-          </label>
-        </div>
+        <input type="text" inputmode="numeric" class="row-target" placeholder="Contoh: 5.000.000.000" />
       </div>
     `;
     efekList.appendChild(wrap);
@@ -304,7 +295,6 @@ if ('IntersectionObserver' in window) {
       jumlahInput: wrap.querySelector('.row-jumlah'),
       targetField: wrap.querySelector('.row-target-field'),
       targetInput: wrap.querySelector('.row-target'),
-      risikoField: wrap.querySelector('.row-risiko-field'),
     };
     rows.set(id, row);
 
@@ -318,14 +308,13 @@ if ('IntersectionObserver' in window) {
     });
 
     row.kodeEl.addEventListener('input', () => {
-      if (row.jenisEl.value === 'obligasi') {
-        const entry = obligasiMap[row.kodeEl.value.trim()];
-        row.risikoField.hidden = !(entry && entry.is_korporasi === true);
-      }
       resetResultUI();
     });
 
+    // ---- Format ribuan live saat mengetik (mis. "5000000000" -> "5.000.000.000") ----
     row.targetInput.addEventListener('input', () => {
+      const raw = row.targetInput.value.replace(/\D/g, '');
+      row.targetInput.value = raw ? Number(raw).toLocaleString('id-ID') : '';
       updateTotalTarget();
       resetResultUI();
     });
@@ -420,15 +409,15 @@ if ('IntersectionObserver' in window) {
 
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
-              jumlah: jumlahLot, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan,
+              jumlah: jumlahLot, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.group,
               detailHTML:
-                `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • ` +
-                `Group: ${result.group} • Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+                `Harga Penutupan Terakhir: ${rupiah(marketMetrics.latest_close)} • ` +
+                `Nilai Jaminan: ${rupiah(result.nilai_jaminan_final)} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group}` +
                 (result.kena_cap ? `<br/><span style="color:var(--maroon-700)">⚠ Nilai jaminan dipangkas karena melebihi batas maksimum per saham.</span>` : ''),
             });
 
           } else {
-            const targetPendanaan = parseFloat(row.targetInput.value) || 0;
+            const targetPendanaan = parseRupiahInput(row.targetInput.value);
             if (!kodeSaham || targetPendanaan <= 0) {
               showWarn(`Efek #${rowIndex}: mohon pilih kode saham dan isi kebutuhan dana terlebih dahulu.`);
               return;
@@ -450,10 +439,10 @@ if ('IntersectionObserver' in window) {
 
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
-              jumlah: result.jumlah_lot_dibutuhkan, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan_aktual,
+              jumlah: result.jumlah_lot_dibutuhkan, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.group,
               detailHTML:
-                `Jumlah Lembar: ${result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • ` +
-                `Group: ${result.group} • Haircut KPEI: ${result.haircut_kpei_pct}% (${result.kategori_haircut})` +
+                `Harga Penutupan Terakhir: ${rupiah(marketMetrics.latest_close)} • ` +
+                `Jumlah Lembar: ${result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')} • Rasio: ${(result.recommended_ratio * 100).toFixed(0)}% • Group: ${result.group}` +
                 (result.kena_cap
                   ? `<br/><span style="color:var(--maroon-700)">⚠ Kebutuhan dana untuk efek ini melebihi batas maksimum saham ini ` +
                     `(maks. sekitar ${rupiah(result.max_pendanaan_dari_cap)}).</span>`
@@ -466,7 +455,6 @@ if ('IntersectionObserver' in window) {
             Object.entries(obligasiMap).map(([k, v]) => [k, v.kode_efek])
           ));
           const bondRow = simData.statisEfek[kodeObligasi];
-          const kategoriRisikoKorporasi = row.risikoField.querySelector('input[type="radio"]:checked')?.value || 'Sedang';
 
           if (!bondRow) {
             showWarn(`Efek #${rowIndex}: data obligasi ${kodeObligasi || '(belum dipilih)'} tidak ditemukan. Pastikan kode dipilih dari daftar yang muncul.`);
@@ -479,28 +467,28 @@ if ('IntersectionObserver' in window) {
               showWarn(`Efek #${rowIndex}: mohon pilih kode obligasi dan isi jumlah unit terlebih dahulu.`);
               return;
             }
-            const result = CalcEngine.simulateBondFunding({ kodeObligasi, jumlahUnit, bondRow, kategoriRisikoKorporasi });
+            const result = CalcEngine.simulateBondFunding({ kodeObligasi, jumlahUnit, bondRow });
             if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
 
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
-              jumlah: jumlahUnit, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan,
-              detailHTML: `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`,
+              jumlah: jumlahUnit, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.jenis_obligasi,
+              detailHTML: `Nilai Jaminan: ${rupiah(result.nilai_jaminan)} • Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi}`,
             });
 
           } else {
-            const targetPendanaan = parseFloat(row.targetInput.value) || 0;
+            const targetPendanaan = parseRupiahInput(row.targetInput.value);
             if (!kodeObligasi || targetPendanaan <= 0) {
               showWarn(`Efek #${rowIndex}: mohon pilih kode obligasi dan isi kebutuhan dana terlebih dahulu.`);
               return;
             }
-            const result = CalcEngine.computeRequiredBondUnits({ kodeObligasi, targetPendanaan, bondRow, kategoriRisikoKorporasi });
+            const result = CalcEngine.computeRequiredBondUnits({ kodeObligasi, targetPendanaan, bondRow });
             if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
 
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
-              jumlah: result.jumlah_unit_dibutuhkan, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan_aktual,
-              detailHTML: `Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi} (${result.kategori_risiko})`,
+              jumlah: result.jumlah_unit_dibutuhkan, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.jenis_obligasi,
+              detailHTML: `Rasio: ${(result.rasio * 100).toFixed(0)}% • Jenis: ${result.jenis_obligasi}`,
             });
           }
         }
@@ -508,16 +496,49 @@ if ('IntersectionObserver' in window) {
 
       // ---- Gabungkan hasil semua baris ----
       const totalEstimasiPendanaan = items.reduce((sum, it) => sum + it.estimasiPendanaan, 0);
+      const tenorBulan = parseInt(tenorSel.value, 10) || 1;
+
+      // ---- Hitung kewajiban pembayaran (bunga) per efek, berdasarkan group/jenis-nya ----
+      let totalBungaSemua = 0;
+      let totalPengembalianSemua = 0;
+      let adaRateTidakDitemukan = false;
+
+      items.forEach((it) => {
+        const rateAnnual = it.jenis === 'saham'
+          ? CalcEngine.getInterestRateSaham(it.rateKey)
+          : CalcEngine.getInterestRateObligasi(it.rateKey);
+        const bunga = CalcEngine.hitungKewajibanPembayaran({ pokokPinjaman: it.estimasiPendanaan, tenorBulan, rateAnnual });
+        it.bunga = bunga; // simpan di item supaya bisa dipakai render & disimpan ke sessionStorage
+        if (bunga.error) {
+          adaRateTidakDitemukan = true;
+        } else {
+          totalBungaSemua += bunga.total_bunga;
+          totalPengembalianSemua += bunga.total_pengembalian;
+        }
+      });
+
       const itemsHTML = items.map((it, i) => {
-        const jenisLabel = it.jenis === 'saham' ? 'Saham' : 'Obligasi';
+        const jenisLabel = it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi';
         const jumlahLabel = reverse ? `${it.jumlah.toLocaleString('id-ID')} ${it.satuan} dibutuhkan` : `${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`;
+        const bungaHTML = it.bunga.error
+          ? `<br/><span style="color:var(--maroon-700)">⚠ ${it.bunga.error}</span>`
+          : `<br/>Bunga: ${(it.bunga.rate_annual * 100).toFixed(0)}% p.a. • Bunga per Bulan: ${rupiah(it.bunga.bunga_per_bulan)} • ` +
+            `Total Bunga (${tenorBulan} bulan): ${rupiah(it.bunga.total_bunga)} • ` +
+            `<strong>Total Dikembalikan: ${rupiah(it.bunga.total_pengembalian)}</strong>`;
         return (
           `<div style="margin-top:${i === 0 ? '0' : '0.8rem'}; padding-top:${i === 0 ? '0' : '0.8rem'}; ${i === 0 ? '' : 'border-top:1px dashed rgba(0,0,0,0.12);'}">` +
           `<strong>#${i + 1} — ${jenisLabel}: ${it.namaTampil}</strong> (${jumlahLabel}) • Estimasi Pendanaan: ${rupiah(it.estimasiPendanaan)}<br/>` +
-          `<span style="font-size:0.85rem;">${it.detailHTML}</span>` +
+          `<span style="font-size:0.85rem;">${it.detailHTML}${bungaHTML}</span>` +
           `</div>`
         );
       }).join('');
+
+      const ringkasanBungaHTML = adaRateTidakDitemukan
+        ? ''
+        : `<div style="margin-top:0.8rem; padding-top:0.8rem; border-top:2px solid rgba(0,0,0,0.15);">` +
+          `<strong>Ringkasan Kewajiban Pembayaran (Tenor ${tenorBulan} Bulan)</strong><br/>` +
+          `Total Bunga: ${rupiah(totalBungaSemua)} • <strong>Total Harus Dikembalikan di Akhir Tenor: ${rupiah(totalPengembalianSemua)}</strong>` +
+          `</div>`;
 
       let label, value, metaHTML;
 
@@ -528,12 +549,12 @@ if ('IntersectionObserver' in window) {
         items.forEach((it) => { bySatuan[it.satuan] = (bySatuan[it.satuan] || 0) + it.jumlah; });
         value = Object.entries(bySatuan).map(([sat, jml]) => `${jml.toLocaleString('id-ID')} ${sat}`).join(' + ');
         label = items.length > 1 ? `Kebutuhan Jaminan (${items.length} Efek)` : 'Kebutuhan Jaminan';
-        metaHTML = `<strong>Total Estimasi Pendanaan: ${rupiah(totalEstimasiPendanaan)}</strong><br/>` + itemsHTML;
+        metaHTML = `<strong>Total Estimasi Pendanaan: ${rupiah(totalEstimasiPendanaan)}</strong><br/>` + itemsHTML + ringkasanBungaHTML;
       } else {
         // Mode forward: angka besar = total estimasi pendanaan (Rupiah) — ini yang dicari user.
         value = rupiah(totalEstimasiPendanaan);
         label = items.length > 1 ? `Total Estimasi Pendanaan Gabungan (${items.length} Efek)` : 'Estimasi Nilai Pendanaan';
-        metaHTML = itemsHTML;
+        metaHTML = itemsHTML + ringkasanBungaHTML;
       }
 
       showResult({
@@ -542,8 +563,11 @@ if ('IntersectionObserver' in window) {
         metaHTML,
         payload: {
           mode: reverse ? 'dana-ke-lot' : 'lot-ke-dana',
+          tenorBulan,
           items,
           totalEstimasiPendanaan,
+          totalBungaSemua,
+          totalPengembalianSemua,
           timestamp: Date.now(),
         },
       });
@@ -597,7 +621,7 @@ if ('IntersectionObserver' in window) {
     }
 
     const ringkasanPerEfek = saved.items
-      .map((it) => `${it.jenis === 'saham' ? 'Saham' : 'Obligasi'} ${it.namaTampil} (${it.jumlah.toLocaleString('id-ID')} ${it.satuan})`)
+      .map((it) => `${it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi'} ${it.namaTampil} (${it.jumlah.toLocaleString('id-ID')} ${it.satuan})`)
       .join(' + ');
 
     metaEl.innerHTML =
@@ -611,7 +635,7 @@ if ('IntersectionObserver' in window) {
     if (!saved) return;
 
     const daftarEfek = saved.items
-      .map((it) => `${it.jenis === 'saham' ? 'Saham' : 'Obligasi'}: ${it.namaTampil} — ${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`)
+      .map((it) => `${it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi'}: ${it.namaTampil} — ${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`)
       .join('\n');
     fSaham.value = `${daftarEfek}\nTotal Estimasi Pendanaan Gabungan: ${rupiah(saved.totalEstimasiPendanaan)}`;
 
@@ -628,28 +652,21 @@ if ('IntersectionObserver' in window) {
 })();
 
 /* ============================================================
-   BROKER DATALIST (form pengajuan) — ketik lalu pilih, dari data/broker.json
-   Format broker.json: [{ "broker_code": "...", "broker_name": "..." }, ...]
+   BROKER "LAINNYA" — tampilkan field nama broker manual kalau
+   opsi "Lainnya (broker tidak ada di daftar)" dipilih.
    ============================================================ */
-(function buildBrokerDatalist() {
-  const dl = document.getElementById('dlBroker');
-  const input = document.getElementById('fBroker');
-  if (!dl || !input) return;
+(function brokerLainnya() {
+  const select = document.getElementById('fBroker');
+  const fieldLainnya = document.getElementById('fieldBrokerLainnya');
+  const inputLainnya = document.getElementById('fBrokerLainnya');
+  if (!select || !fieldLainnya || !inputLainnya) return;
 
-  fetch('data/broker.json')
-    .then((res) => {
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      return res.json();
-    })
-    .then((brokers) => {
-      dl.innerHTML = brokers
-        .map((b) => `<option value="${b.broker_code} — ${b.broker_name}"></option>`)
-        .join('');
-    })
-    .catch((err) => {
-      console.error('Gagal memuat daftar broker (data/broker.json):', err);
-      // Input tetap bisa diisi manual walau daftar broker gagal dimuat.
-    });
+  select.addEventListener('change', () => {
+    const isLainnya = select.value === 'Lainnya';
+    fieldLainnya.hidden = !isLainnya;
+    inputLainnya.required = isLainnya;
+    if (!isLainnya) inputLainnya.value = '';
+  });
 })();
 
 /* ============================================================
