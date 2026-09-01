@@ -2,8 +2,21 @@
    DATA LOADER — port dari data_loader.py
    Fetch file JSON statis (hasil convert dari Excel/txt asli) dan
    sediakan lookup cepat untuk calc-engine.js & UI simulator.
-   ============================================================ */
 
+   CATATAN (obligasi): daftar obligasi eligible sekarang bersumber
+   LANGSUNG dari data/statis_efek.json, yang sudah di-generate dari
+   data master KSEI (StatisEfek) dengan filter:
+     - Type: CORPORATE BOND atau GOVERNMENT BOND saja (Sukuk/SBSN/
+       SPN dan tipe syariah lainnya otomatis TIDAK masuk)
+     - Interest Type: "Fixed" (case-insensitive — "FIXED"/"Fixed"
+       dianggap sama)
+     - Currency: IDR saja (obligasi USD dikecualikan karena skema
+       harga/nominalnya beda, tidak cocok dengan rumus yang dipakai)
+     - Status: ACTIVE
+   Jadi data-loader.js TIDAK perlu lagi cross-reference ke
+   daftar_jaminan.json untuk menentukan eligibility obligasi —
+   semua entri di statis_efek.json sudah pasti eligible.
+   ============================================================ */
 const DataLoader = (() => {
   let cache = null;
 
@@ -15,7 +28,6 @@ const DataLoader = (() => {
 
   async function loadAll() {
     if (cache) return cache;
-
     const [instrument, haircutKpei, daftarJaminan, listedFreefloat, statisEfek] = await Promise.all([
       fetchJsonFile("data/instrument.json"),
       fetchJsonFile("data/haircut_kpei.json"),
@@ -23,11 +35,9 @@ const DataLoader = (() => {
       fetchJsonFile("data/listed_freefloat.json"),
       fetchJsonFile("data/statis_efek.json"),
     ]);
-
     // Index instrument by kode_efek untuk lookup cepat
     const instrumentByKode = {};
     instrument.forEach((row) => { instrumentByKode[row.kode_efek] = row; });
-
     cache = { instrument, instrumentByKode, haircutKpei, daftarJaminan, listedFreefloat, statisEfek };
     return cache;
   }
@@ -44,14 +54,10 @@ const DataLoader = (() => {
       .sort((a, b) => a.kode_efek.localeCompare(b.kode_efek));
   }
 
-  // ---- Daftar obligasi eligible (SBN + korporasi, dan status ACTIVE di statis_efek) ----
+  // ---- Daftar obligasi eligible — langsung dari statis_efek.json (sudah pre-filtered) ----
   function getObligasiOptions(data) {
-    const eligibleCodes = new Set([
-      ...data.daftarJaminan.sbn.map((r) => r.kode_efek),
-      ...data.daftarJaminan.obligasi_korporasi.map((r) => r.kode_efek),
-    ]);
     return Object.values(data.statisEfek)
-      .filter((row) => eligibleCodes.has(row.kode_efek) && row.status === "ACTIVE")
+      .filter((row) => row.status === "ACTIVE")
       .map((row) => ({
         kode_efek: row.kode_efek,
         display: `${row.kode_efek} — ${row.nama_efek || ""}`,
