@@ -141,7 +141,7 @@ if ('IntersectionObserver' in window) {
   let obligasiMap = {};   // display -> { kode_efek, is_korporasi }
   let currentSimPayload = null; // data hasil hitung terakhir, siap disimpan ke sessionStorage
   let rowIdCounter = 0;
-  const rows = new Map(); // rowId -> { el, jenisEl, kodeEl, datalistEl, jumlahField, jumlahInput, targetField, targetInput, risikoField, satuanLabelEl }
+  const rows = new Map(); // rowId -> { el, jenisEl, kodeEl, datalistEl, jumlahField, jumlahLabelEl, jumlahInput, targetField, targetInput }
 
   function isReverseMode() {
     return modeSel.value === 'dana-ke-lot';
@@ -239,7 +239,6 @@ if ('IntersectionObserver' in window) {
       row.jumlahLabelEl.textContent = 'Jumlah Lot';
       row.jumlahInput.step = '100';
       row.jumlahInput.value = '100';
-      row.risikoField.hidden = true;
     } else {
       row.datalistEl.innerHTML = obligasiOptions.map((o) => `<option value="${o.display}"></option>`).join('');
       row.kodeEl.placeholder = simData ? 'Ketik kode atau nama obligasi, lalu pilih...' : 'Memuat daftar obligasi...';
