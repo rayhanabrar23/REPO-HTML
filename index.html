@@ -114,6 +114,18 @@
           </select>
         </div>
 
+        <div class="field" style="max-width:280px; margin-bottom:1.2rem;">
+          <label for="tenorSimulasi">Rencana Tenor (untuk hitung bunga)</label>
+          <select id="tenorSimulasi">
+            <option value="1">1 Bulan</option>
+            <option value="2">2 Bulan</option>
+            <option value="3">3 Bulan</option>
+            <option value="4">4 Bulan</option>
+            <option value="5">5 Bulan</option>
+            <option value="6">6 Bulan</option>
+          </select>
+        </div>
+
         <p class="section-desc" style="margin-bottom:1rem;">
           Bisa jaminkan lebih dari satu efek sekaligus — klik "+ Tambah Efek" untuk menambah baris.
         </p>
@@ -177,8 +189,35 @@
         </div>
         <div class="field">
           <label for="fBroker">Broker yang Dipakai *</label>
-          <input type="text" id="fBroker" name="Broker" list="dlBroker" placeholder="Ketik nama broker, lalu pilih..." autocomplete="off" required />
-          <datalist id="dlBroker"></datalist>
+          <select id="fBroker" name="Broker" required>
+            <option value="">Pilih broker...</option>
+            <option value="MNC Sekuritas">MNC Sekuritas</option>
+            <option value="Lotus Andalan Sekuritas">Lotus Andalan Sekuritas</option>
+            <option value="Yuanta Sekuritas Indonesia">Yuanta Sekuritas Indonesia</option>
+            <option value="KB Valbury Sekuritas">KB Valbury Sekuritas</option>
+            <option value="Trimegah Sekuritas Indonesia Tbk.">Trimegah Sekuritas Indonesia Tbk.</option>
+            <option value="KGI Sekuritas Indonesia">KGI Sekuritas Indonesia</option>
+            <option value="Sucor Sekuritas">Sucor Sekuritas</option>
+            <option value="BRI Danareksa Sekuritas">BRI Danareksa Sekuritas</option>
+            <option value="Maybank Sekuritas Indonesia">Maybank Sekuritas Indonesia</option>
+            <option value="Henan Putihrai Sekuritas">Henan Putihrai Sekuritas</option>
+            <option value="Surya Fajar Sekuritas">Surya Fajar Sekuritas</option>
+            <option value="Buana Capital Sekuritas">Buana Capital Sekuritas</option>
+            <option value="Erdikha Elit Sekuritas">Erdikha Elit Sekuritas</option>
+            <option value="Panca Global Sekuritas">Panca Global Sekuritas</option>
+            <option value="RHB Sekuritas Indonesia">RHB Sekuritas Indonesia</option>
+            <option value="Ajaib Sekuritas Asia">Ajaib Sekuritas Asia</option>
+            <option value="Mega Capital Sekuritas">Mega Capital Sekuritas</option>
+            <option value="Bumiputera Sekuritas">Bumiputera Sekuritas</option>
+            <option value="Reliance Sekuritas Indonesia Tbk.">Reliance Sekuritas Indonesia Tbk.</option>
+            <option value="Trust Sekuritas">Trust Sekuritas</option>
+            <option value="Sinarmas Sekuritas">Sinarmas Sekuritas</option>
+            <option value="Lainnya">Lainnya (broker tidak ada di daftar)</option>
+          </select>
+        </div>
+        <div class="field" id="fieldBrokerLainnya" hidden>
+          <label for="fBrokerLainnya">Nama Broker Lainnya *</label>
+          <input type="text" id="fBrokerLainnya" name="Nama Broker Lainnya" placeholder="Tulis nama broker yang Anda pakai" />
         </div>
         <div class="field">
           <label for="fTenor">Rencana Tenor *</label>
