@@ -66,7 +66,7 @@ const CalcEngine = (() => {
 
   // ---- Obligasi ----
   const NOMINAL_PER_UNIT_OBLIGASI = 1_000_000; // Rp 1 juta / unit
-  const RASIO_OBLIGASI_KORPORASI = { Sedang: 1.05, Tinggi: 1.20 };
+  const RASIO_OBLIGASI_KORPORASI = 1.05; // flat 105% untuk semua obligasi korporasi (tidak ada pilihan kategori risiko)
   const RASIO_OBLIGASI_PEMERINTAH = 1.0;
 
   // ------------------------------------------------------------
@@ -104,11 +104,20 @@ const CalcEngine = (() => {
   // Hitung Group, kategori haircut, tier & recommended ratio saham.
   // Dipakai bersama oleh mode forward maupun reverse (tidak tergantung
   // besar dana/jumlah lot yang diminta).
-  function hitungRasioSaham({ marketMetrics, instrumentRow, haircutRow }) {
+  function hitungRasioSaham({ kodeSaham, marketMetrics, instrumentRow, haircutRow }) {
     const group = tentukanGroup(instrumentRow.index_membership, instrumentRow.is_margin);
+
+    // Saham non-marjin TIDAK eligible dijadikan jaminan Transaksi REPO —
+    // tolak di sini, sebelum masuk ke perhitungan nilai jaminan/rasio sama sekali.
+    // (Catatan: matrix RASIO_SAHAM_MATRIX.NON_MARJIN tetap ada di atas untuk referensi
+    // historis, tapi sengaja tidak pernah dipakai karena kebijakan ini.)
+    if (group === "NON_MARJIN") {
+      return { error: `${kodeSaham} tidak eligible untuk dijadikan jaminan Transaksi REPO (non-marjin). Silakan pilih saham lain.` };
+    }
+
     const haircutPct = haircutRow.haircut_kpei_pct;
     if (haircutPct == null) {
-      return { error: `Haircut KPEI tidak ditemukan` };
+      return { error: `Haircut KPEI untuk ${kodeSaham} tidak ditemukan` };
     }
     const kategoriHaircut = tentukanKategoriHaircut(haircutPct);
     const tier = pilihTier(group, marketMetrics.var_20d_pct, marketMetrics.days_to_sell_10bio, RASIO_SAHAM_THRESHOLDS);
@@ -142,8 +151,8 @@ const CalcEngine = (() => {
   }) {
     const jumlahLembar = jumlahLot * 100;
 
-    const rasioInfo = hitungRasioSaham({ marketMetrics, instrumentRow, haircutRow });
-    if (rasioInfo.error) return { error: `${rasioInfo.error} untuk ${kodeSaham}` };
+    const rasioInfo = hitungRasioSaham({ kodeSaham, marketMetrics, instrumentRow, haircutRow });
+    if (rasioInfo.error) return { error: rasioInfo.error };
     const { group, haircutPct, kategoriHaircut, recommendedRatio } = rasioInfo;
 
     // Nilai Jaminan mentah (harga terendah = buffer konservatif)
@@ -195,8 +204,8 @@ const CalcEngine = (() => {
       return { error: "Kebutuhan pendanaan harus lebih dari 0" };
     }
 
-    const rasioInfo = hitungRasioSaham({ marketMetrics, instrumentRow, haircutRow });
-    if (rasioInfo.error) return { error: `${rasioInfo.error} untuk ${kodeSaham}` };
+    const rasioInfo = hitungRasioSaham({ kodeSaham, marketMetrics, instrumentRow, haircutRow });
+    if (rasioInfo.error) return { error: rasioInfo.error };
     const { group, haircutPct, kategoriHaircut, recommendedRatio } = rasioInfo;
 
     const hargaTerendah = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
@@ -240,30 +249,27 @@ const CalcEngine = (() => {
   // ------------------------------------------------------------
   // OBLIGASI — mode forward: jumlah unit -> estimasi pendanaan
   // ------------------------------------------------------------
-  function tentukanRasioObligasi(bondRow, kategoriRisikoKorporasi) {
+  function tentukanRasioObligasi(bondRow) {
     const tipe = (bondRow.tipe_instrumen || "").toUpperCase();
     const isPemerintah = ["GOVERNMENT BOND", "SBSN", "SUKUK", "SPN"].includes(tipe);
 
     if (isPemerintah) {
-      return { jenisObligasi: "Pemerintah", rasio: RASIO_OBLIGASI_PEMERINTAH, kategoriRisiko: "Rendah", tipe };
+      return { jenisObligasi: "Pemerintah", rasio: RASIO_OBLIGASI_PEMERINTAH, tipe };
     }
-    let kategori = kategoriRisikoKorporasi;
-    if (!(kategori in RASIO_OBLIGASI_KORPORASI)) kategori = "Sedang";
-    return { jenisObligasi: "Korporasi", rasio: RASIO_OBLIGASI_KORPORASI[kategori], kategoriRisiko: kategori, tipe };
+    return { jenisObligasi: "Korporasi", rasio: RASIO_OBLIGASI_KORPORASI, tipe };
   }
 
   function simulateBondFunding({
     kodeObligasi,
     jumlahUnit,
     bondRow, // { tipe_instrumen, closing_price_pct, nama_efek, maturity_date, kupon_pct }
-    kategoriRisikoKorporasi = "Sedang",
   }) {
     const closingPct = bondRow.closing_price_pct;
     if (closingPct == null) {
       return { error: `Closing price untuk ${kodeObligasi} tidak ditemukan` };
     }
 
-    const { jenisObligasi, rasio, kategoriRisiko, tipe } = tentukanRasioObligasi(bondRow, kategoriRisikoKorporasi);
+    const { jenisObligasi, rasio, tipe } = tentukanRasioObligasi(bondRow);
 
     // Nilai Jaminan = jumlah unit x nominal per unit x closing price (fraksi par)
     const nilaiJaminan = jumlahUnit * NOMINAL_PER_UNIT_OBLIGASI * closingPct;
@@ -274,7 +280,6 @@ const CalcEngine = (() => {
       nama_obligasi: bondRow.nama_efek,
       tipe_instrumen: tipe,
       jenis_obligasi: jenisObligasi,
-      kategori_risiko: kategoriRisiko,
       jumlah_unit: jumlahUnit,
       nominal_per_unit: NOMINAL_PER_UNIT_OBLIGASI,
       closing_price_pct: closingPct,
@@ -293,7 +298,6 @@ const CalcEngine = (() => {
     kodeObligasi,
     targetPendanaan,
     bondRow,
-    kategoriRisikoKorporasi = "Sedang",
   }) {
     if (!targetPendanaan || targetPendanaan <= 0) {
       return { error: "Kebutuhan pendanaan harus lebih dari 0" };
@@ -304,7 +308,7 @@ const CalcEngine = (() => {
       return { error: `Closing price untuk ${kodeObligasi} tidak ditemukan` };
     }
 
-    const { jenisObligasi, rasio, kategoriRisiko, tipe } = tentukanRasioObligasi(bondRow, kategoriRisikoKorporasi);
+    const { jenisObligasi, rasio, tipe } = tentukanRasioObligasi(bondRow);
 
     const nilaiJaminanDibutuhkan = targetPendanaan * rasio;
     const nilaiPerUnit = NOMINAL_PER_UNIT_OBLIGASI * closingPct;
@@ -317,7 +321,6 @@ const CalcEngine = (() => {
       nama_obligasi: bondRow.nama_efek,
       tipe_instrumen: tipe,
       jenis_obligasi: jenisObligasi,
-      kategori_risiko: kategoriRisiko,
       target_pendanaan: targetPendanaan,
       nominal_per_unit: NOMINAL_PER_UNIT_OBLIGASI,
       closing_price_pct: closingPct,
@@ -330,6 +333,52 @@ const CalcEngine = (() => {
     };
   }
 
+  // ------------------------------------------------------------
+  // BUNGA / KEWAJIBAN PEMBAYARAN (poin 9)
+  // Bunga REPO — simple interest per-annum, dihitung pro-rata sesuai
+  // tenor (bulan). Bunga dibayar per bulan (interest-only), pokok
+  // dikembalikan penuh di akhir tenor (bullet payment).
+  // ------------------------------------------------------------
+  const INTEREST_RATE_SAHAM = {
+    LQ45: 0.12,           // 12% p.a.
+    IDX80_NON_LQ45: 0.15, // 15% p.a.
+    MARJIN_LAINNYA: 0.18, // 18% p.a.
+    // NON_MARJIN: belum ditentukan — dalam praktiknya tidak akan muncul karena
+    // daftar saham yang bisa dipilih sudah difilter hanya yang eligible marjin.
+  };
+  const INTEREST_RATE_OBLIGASI = {
+    Korporasi: 0.11,  // 11% p.a.
+    Pemerintah: 0.09, // 9% p.a.
+  };
+
+  function getInterestRateSaham(group) {
+    return INTEREST_RATE_SAHAM[group] ?? null;
+  }
+
+  function getInterestRateObligasi(jenisObligasi) {
+    return INTEREST_RATE_OBLIGASI[jenisObligasi] ?? null;
+  }
+
+  function hitungKewajibanPembayaran({ pokokPinjaman, tenorBulan, rateAnnual }) {
+    if (rateAnnual == null) {
+      return { error: "Rate bunga untuk kategori efek ini belum ditentukan, mohon hubungi PEI langsung." };
+    }
+    if (!pokokPinjaman || pokokPinjaman <= 0 || !tenorBulan || tenorBulan <= 0) {
+      return { error: "Pokok pinjaman dan tenor harus lebih dari 0." };
+    }
+    const bungaPerBulan = (pokokPinjaman * rateAnnual) / 12;
+    const totalBunga = bungaPerBulan * tenorBulan;
+    const totalPengembalian = pokokPinjaman + totalBunga;
+    return {
+      pokok_pinjaman: pokokPinjaman,
+      rate_annual: rateAnnual,
+      tenor_bulan: tenorBulan,
+      bunga_per_bulan: bungaPerBulan,
+      total_bunga: totalBunga,
+      total_pengembalian: totalPengembalian,
+    };
+  }
+
   return {
     simulateStockFunding,
     simulateBondFunding,
@@ -337,5 +386,8 @@ const CalcEngine = (() => {
     computeRequiredBondUnits,
     tentukanGroup,
     tentukanKategoriHaircut,
+    getInterestRateSaham,
+    getInterestRateObligasi,
+    hitungKewajibanPembayaran,
   };
 })();
