@@ -343,7 +343,7 @@ a { text-decoration: none; color: inherit; }
    FOOTER
    ============================================================ */
 .site-footer {
-  background: var(--maroon-900);
+  background: var(--maroon-700);
   color: #E7C9CD;
   padding: 3rem 0;
   margin-top: 2rem;
