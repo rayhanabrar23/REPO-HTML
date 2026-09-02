@@ -513,6 +513,8 @@ if ('IntersectionObserver' in window) {
       // ---- Hitung kewajiban pembayaran (bunga) per efek, berdasarkan group/jenis-nya ----
       let totalBungaSemua = 0;
       let totalPengembalianSemua = 0;
+      let totalBungaPerBulanSemua = 0;
+      let totalPokokSemua = 0;
       let adaRateTidakDitemukan = false;
 
       items.forEach((it) => {
@@ -526,6 +528,8 @@ if ('IntersectionObserver' in window) {
         } else {
           totalBungaSemua += bunga.total_bunga;
           totalPengembalianSemua += bunga.total_pengembalian;
+          totalBungaPerBulanSemua += bunga.bunga_per_bulan;
+          totalPokokSemua += it.estimasiPendanaan;
         }
       });
 
@@ -552,6 +556,33 @@ if ('IntersectionObserver' in window) {
         );
       }).join('');
 
+      // ---- Jadwal cicilan per bulan: bunga-only tiap bulan, pokok dilunasi penuh di bulan terakhir (bullet) ----
+      const jadwalRows = [];
+      for (let bulan = 1; bulan <= tenorBulan; bulan++) {
+        const isLast = bulan === tenorBulan;
+        const bayarBulanIni = totalBungaPerBulanSemua + (isLast ? totalPokokSemua : 0);
+        const keterangan = isLast ? 'Bunga + Pelunasan Pokok (jatuh tempo)' : 'Bunga';
+        jadwalRows.push(
+          `<tr>` +
+          `<td style="text-align:left; padding:0.3rem 0.8rem 0.3rem 0; color:var(--gray-600, #666);">Bulan ${bulan}</td>` +
+          `<td style="text-align:left; padding:0.3rem 0.8rem 0.3rem 0; color:var(--gray-600, #666); font-size:0.8rem;">${keterangan}</td>` +
+          `<td style="text-align:right; padding:0.3rem 0; ${isLast ? 'font-weight:700;' : ''}">${rupiah(bayarBulanIni)}</td>` +
+          `</tr>`
+        );
+      }
+      const jadwalHTML =
+        `<div style="margin-top:0.9rem;">` +
+        `<div style="font-weight:600; margin-bottom:0.4rem; font-size:0.9rem;">Rincian Pembayaran per Bulan</div>` +
+        `<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">` +
+        `<thead><tr>` +
+        `<th style="text-align:left; padding:0.2rem 0.8rem 0.4rem 0; font-size:0.78rem; text-transform:uppercase; color:var(--gray-600,#666); border-bottom:1px solid rgba(0,0,0,0.12);">Bulan</th>` +
+        `<th style="text-align:left; padding:0.2rem 0.8rem 0.4rem 0; font-size:0.78rem; text-transform:uppercase; color:var(--gray-600,#666); border-bottom:1px solid rgba(0,0,0,0.12);">Keterangan</th>` +
+        `<th style="text-align:right; padding:0.2rem 0 0.4rem; font-size:0.78rem; text-transform:uppercase; color:var(--gray-600,#666); border-bottom:1px solid rgba(0,0,0,0.12);">Jumlah Dibayar</th>` +
+        `</tr></thead><tbody>` +
+        jadwalRows.join('') +
+        `</tbody></table>` +
+        `</div>`;
+
       const ringkasanBungaHTML = adaRateTidakDitemukan
         ? ''
         : `<div style="margin-top:1.1rem; padding-top:1.1rem; border-top:2px solid rgba(0,0,0,0.15); text-align:left;">` +
@@ -560,6 +591,7 @@ if ('IntersectionObserver' in window) {
           tableRow('Total Bunga', rupiah(totalBungaSemua)) +
           tableRow('Total yang Harus Dibayar di Akhir Tenor', rupiah(totalPengembalianSemua), true) +
           `</table>` +
+          jadwalHTML +
           `</div>`;
 
       let label, value, metaHTML;
