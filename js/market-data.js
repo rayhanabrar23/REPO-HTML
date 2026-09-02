@@ -102,11 +102,26 @@ const MarketData = (() => {
 
     const closesRaw = result.indicators?.quote?.[0]?.close || [];
     const volumesRaw = result.indicators?.quote?.[0]?.volume || [];
+    const timestamps = result.timestamp || [];
 
     // Buang entri null (hari libur/data kosong)
-    const pairs = closesRaw
-      .map((c, i) => ({ close: c, volume: volumesRaw[i] }))
+    let pairs = closesRaw
+      .map((c, i) => ({ close: c, volume: volumesRaw[i], ts: timestamps[i] }))
       .filter((p) => p.close != null);
+
+    // Kalau bursa MASIH DALAM SESI BERJALAN hari ini, bar terakhir di data Yahoo
+    // adalah harga yang masih live/berjalan (belum closing resmi) — bukan closing
+    // hari bursa sebelumnya. Buang bar ini supaya "closing terakhir" yang dipakai
+    // selalu closing hari bursa yang SUDAH SELESAI (sesuai definisi BEI).
+    const regularStart = result.meta?.currentTradingPeriod?.regular?.start;
+    const regularEnd = result.meta?.currentTradingPeriod?.regular?.end;
+    const nowSec = Date.now() / 1000;
+    if (regularStart != null && regularEnd != null && nowSec < regularEnd && pairs.length > 0) {
+      const lastBar = pairs[pairs.length - 1];
+      if (lastBar.ts != null && lastBar.ts >= regularStart) {
+        pairs = pairs.slice(0, -1); // bar hari ini masih berjalan, bukan closing final
+      }
+    }
 
     if (pairs.length < 5) {
       return { error: `Data harga ${kodeSaham} terlalu sedikit (${pairs.length} hari) untuk dihitung` };
