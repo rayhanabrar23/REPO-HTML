@@ -303,6 +303,15 @@ a { text-decoration: none; color: inherit; }
 .form-status.ok { background: #E9F3EA; color: #2E6B34; }
 .form-status.err { background: var(--maroon-100); color: var(--maroon-900); }
 
+/* ---- captcha wrapper ---- */
+.captcha-wrap {
+  margin: 1.6rem 0 1.4rem;
+  padding-top: 1.4rem;
+  border-top: 1px solid var(--gray-300);
+  display: flex;
+  justify-content: center;
+}
+
 /* ============================================================
    BUTTONS
    ============================================================ */
