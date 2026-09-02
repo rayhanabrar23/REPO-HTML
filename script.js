@@ -749,6 +749,14 @@ if ('IntersectionObserver' in window) {
       return;
     }
 
+    const hCaptchaResp = form.querySelector('textarea[name="h-captcha-response"]');
+    if (!hCaptchaResp || !hCaptchaResp.value) {
+      statusEl.hidden = false;
+      statusEl.className = 'form-status err';
+      statusEl.textContent = 'Mohon selesaikan verifikasi captcha terlebih dahulu.';
+      return;
+    }
+
     btnSubmit.disabled = true;
     btnSubmit.textContent = 'Mengirim...';
 
