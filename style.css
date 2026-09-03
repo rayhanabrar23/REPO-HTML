@@ -364,6 +364,14 @@ a { text-decoration: none; color: inherit; }
 .btn-block { width: 100%; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
 
+.form-step-actions {
+  display: flex;
+  gap: 0.7rem;
+  margin-top: 0.4rem;
+  align-items: stretch;
+}
+.form-step-actions .btn-primary { flex: 1; }
+
 /* ============================================================
    ALUR MEKANISME — flow steps dengan panah penghubung & animasi
    ============================================================ */
@@ -384,7 +392,7 @@ a { text-decoration: none; color: inherit; }
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
+  justify-content: flex-start;
   transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
 }
 .flow-step:hover {
@@ -410,7 +418,14 @@ a { text-decoration: none; color: inherit; }
   transform: scale(1.12);
   box-shadow: 0 0 0 5px rgba(176,50,54,0.15);
 }
-.flow-label { font-weight: 600; font-size: 0.88rem; }
+.flow-label {
+  font-weight: 600;
+  font-size: 0.88rem;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .flow-arrow {
   flex: 0 0 auto;
   display: flex;
