@@ -345,8 +345,109 @@ a { text-decoration: none; color: inherit; }
 }
 .btn-ghost:hover { background: rgba(255,255,255,0.18); transform: translateY(-2px); }
 
+/* Tombol outline maroon (dipakai untuk aksi sekunder: "+ Tambah Efek",
+   "Simpan Simulasi", pilihan simulator kedua, dst.) — sama seperti
+   .btn-primary tapi latar putih. Diberi hover lift+shadow yang senada
+   supaya terasa konsisten dengan tombol merah. */
+.btn-outline {
+  background: #fff;
+  color: var(--maroon-700, #b03236);
+  border: 1.5px solid var(--maroon-700, #b03236);
+}
+.btn-outline:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(122,30,40,0.18);
+  background: var(--maroon-100, #fbeceb);
+}
+.btn-outline:active { transform: translateY(0); }
+
 .btn-block { width: 100%; }
 .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none !important; }
+
+/* ============================================================
+   ALUR MEKANISME — flow steps dengan panah penghubung & animasi
+   ============================================================ */
+.flow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0;
+}
+.flow-step {
+  flex: 1;
+  min-width: 150px;
+  background: #fff;
+  border: 1.5px solid rgba(0,0,0,0.1);
+  border-radius: 12px;
+  padding: 1.1rem 1rem;
+  text-align: center;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+.flow-step:hover {
+  transform: translateY(-4px);
+  border-color: var(--maroon-700, #b03236);
+  box-shadow: 0 10px 22px rgba(74,16,24,0.12);
+}
+.flow-badge {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto 0.6rem;
+  border-radius: 50%;
+  background: var(--maroon-700, #b03236);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.9rem;
+  transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.flow-step:hover .flow-badge {
+  transform: scale(1.12);
+  box-shadow: 0 0 0 5px rgba(176,50,54,0.15);
+}
+.flow-label { font-weight: 600; font-size: 0.88rem; }
+.flow-arrow {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  color: rgba(74,16,24,0.28);
+  transition: color 0.25s var(--ease), transform 0.25s var(--ease);
+}
+.flow-arrow svg { width: 20px; height: 20px; display: block; }
+.flow-steps:hover .flow-arrow { color: rgba(74,16,24,0.28); }
+.flow-step:hover + .flow-arrow,
+.flow-arrow:has(+ .flow-step:hover) {
+  color: var(--maroon-700, #b03236);
+  transform: translateX(2px);
+}
+
+/* Muncul berurutan (stagger) begitu section reveal-nya kelihatan */
+@media (prefers-reduced-motion: no-preference) {
+  .flow-step {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.5s var(--ease), transform 0.5s var(--ease), border-color 0.25s var(--ease), box-shadow 0.25s var(--ease);
+  }
+  .reveal.is-visible .flow-step {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  .reveal.is-visible .flow-step:nth-of-type(1) { transition-delay: 0.05s; }
+  .reveal.is-visible .flow-step:nth-of-type(2) { transition-delay: 0.15s; }
+  .reveal.is-visible .flow-step:nth-of-type(3) { transition-delay: 0.25s; }
+  .reveal.is-visible .flow-step:nth-of-type(4) { transition-delay: 0.35s; }
+  .reveal.is-visible .flow-step:nth-of-type(5) { transition-delay: 0.45s; }
+}
+
+/* Di layar sempit kartu bertumpuk vertikal — panah horizontal disembunyikan,
+   badge nomor sudah cukup menandakan urutannya. */
+@media (max-width: 720px) {
+  .flow-arrow { display: none; }
+  .flow-step { flex: 1 1 100%; }
+}
 
 /* ============================================================
    FOOTER
