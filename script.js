@@ -770,6 +770,42 @@ createSimulatorInstance('reverse', {
 })();
 
 /* ============================================================
+   FORM PENGAJUAN — 2 LANGKAH
+   Step 1 (identitas dasar: nama/email/WA) -> tombol "Lanjutkan"
+   Step 2 (broker, tenor, rencana, data simulasi, captcha, submit).
+   Validasi step 1 dicek manual (checkValidity) sebelum pindah step,
+   karena field di step 2 yang hidden otomatis dikecualikan dari
+   validasi form oleh browser (elemen [hidden] tidak ikut divalidasi).
+   ============================================================ */
+(function formSteps() {
+  const step1 = document.getElementById('formStep1');
+  const step2 = document.getElementById('formStep2');
+  const btnNext = document.getElementById('btnNextStep');
+  const btnBack = document.getElementById('btnBackStep');
+  if (!step1 || !step2 || !btnNext || !btnBack) return;
+
+  const fNama = document.getElementById('fNama');
+  const fEmail = document.getElementById('fEmail');
+  const fWhatsapp = document.getElementById('fWhatsapp');
+
+  btnNext.addEventListener('click', () => {
+    if (!fNama.checkValidity()) { fNama.reportValidity(); return; }
+    if (!fEmail.checkValidity()) { fEmail.reportValidity(); return; }
+    if (!fWhatsapp.checkValidity()) { fWhatsapp.reportValidity(); return; }
+
+    step1.hidden = true;
+    step2.hidden = false;
+    step2.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
+  btnBack.addEventListener('click', () => {
+    step2.hidden = true;
+    step1.hidden = false;
+    step1.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+})();
+
+/* ============================================================
    FORM SUBMISSION — via Web3Forms (gratis, tanpa backend)
    Daftar & ambil access key gratis di https://web3forms.com
    lalu ganti value pada <input name="access_key"> di index.html
