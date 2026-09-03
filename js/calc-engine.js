@@ -65,7 +65,6 @@ const CalcEngine = (() => {
   };
 
   // ---- Obligasi ----
-  const NOMINAL_PER_UNIT_OBLIGASI = 1_000_000; // Rp 1 juta / unit
   const RASIO_OBLIGASI_KORPORASI = 1.05; // flat 105% untuk semua obligasi korporasi (tidak ada pilihan kategori risiko)
   const RASIO_OBLIGASI_PEMERINTAH = 1.0;
 
@@ -247,7 +246,11 @@ const CalcEngine = (() => {
   }
 
   // ------------------------------------------------------------
-  // OBLIGASI — mode forward: jumlah unit -> estimasi pendanaan
+  // OBLIGASI — mode forward: nilai nominal (Rp) -> estimasi pendanaan
+  // Dihitung dari NILAI NOMINAL yang diinput langsung dalam Rupiah,
+  // bukan "jumlah unit" — karena satuan perdagangan (Rp1 juta, Rp5 juta,
+  // dst.) berbeda-beda per penerbitan obligasi dan tidak bisa diasumsikan
+  // seragam. Nilai nominal Rupiah langsung selalu benar apa pun satuannya.
   // ------------------------------------------------------------
   function tentukanRasioObligasi(bondRow) {
     const tipe = (bondRow.tipe_instrumen || "").toUpperCase();
@@ -261,9 +264,12 @@ const CalcEngine = (() => {
 
   function simulateBondFunding({
     kodeObligasi,
-    jumlahUnit,
+    nilaiNominal, // Rp, nilai nominal obligasi yang dimiliki (bukan jumlah unit)
     bondRow, // { tipe_instrumen, closing_price_pct, nama_efek, maturity_date, kupon_pct }
   }) {
+    if (!nilaiNominal || nilaiNominal <= 0) {
+      return { error: "Nilai nominal obligasi harus lebih dari 0" };
+    }
     const closingPct = bondRow.closing_price_pct;
     if (closingPct == null) {
       return { error: `Closing price untuk ${kodeObligasi} tidak ditemukan` };
@@ -271,8 +277,8 @@ const CalcEngine = (() => {
 
     const { jenisObligasi, rasio, tipe } = tentukanRasioObligasi(bondRow);
 
-    // Nilai Jaminan = jumlah unit x nominal per unit x closing price (fraksi par)
-    const nilaiJaminan = jumlahUnit * NOMINAL_PER_UNIT_OBLIGASI * closingPct;
+    // Nilai Jaminan = nilai nominal x closing price (fraksi par)
+    const nilaiJaminan = nilaiNominal * closingPct;
     const estimasiPendanaan = nilaiJaminan / rasio;
 
     return {
@@ -280,8 +286,7 @@ const CalcEngine = (() => {
       nama_obligasi: bondRow.nama_efek,
       tipe_instrumen: tipe,
       jenis_obligasi: jenisObligasi,
-      jumlah_unit: jumlahUnit,
-      nominal_per_unit: NOMINAL_PER_UNIT_OBLIGASI,
+      nilai_nominal: nilaiNominal,
       closing_price_pct: closingPct,
       rasio,
       nilai_jaminan: nilaiJaminan,
@@ -292,9 +297,9 @@ const CalcEngine = (() => {
   }
 
   // ------------------------------------------------------------
-  // OBLIGASI — mode reverse: kebutuhan pendanaan -> jumlah unit dibutuhkan
+  // OBLIGASI — mode reverse: kebutuhan pendanaan -> nilai nominal dibutuhkan
   // ------------------------------------------------------------
-  function computeRequiredBondUnits({
+  function computeRequiredBondNominal({
     kodeObligasi,
     targetPendanaan,
     bondRow,
@@ -311,10 +316,8 @@ const CalcEngine = (() => {
     const { jenisObligasi, rasio, tipe } = tentukanRasioObligasi(bondRow);
 
     const nilaiJaminanDibutuhkan = targetPendanaan * rasio;
-    const nilaiPerUnit = NOMINAL_PER_UNIT_OBLIGASI * closingPct;
-    const jumlahUnit = Math.ceil(nilaiJaminanDibutuhkan / nilaiPerUnit);
-    const nilaiJaminanAktual = jumlahUnit * nilaiPerUnit;
-    const estimasiPendanaanAktual = nilaiJaminanAktual / rasio;
+    const nilaiNominalDibutuhkan = nilaiJaminanDibutuhkan / closingPct;
+    const estimasiPendanaanAktual = (nilaiNominalDibutuhkan * closingPct) / rasio; // = targetPendanaan (tanpa pembulatan satuan)
 
     return {
       kode_obligasi: kodeObligasi,
@@ -322,11 +325,10 @@ const CalcEngine = (() => {
       tipe_instrumen: tipe,
       jenis_obligasi: jenisObligasi,
       target_pendanaan: targetPendanaan,
-      nominal_per_unit: NOMINAL_PER_UNIT_OBLIGASI,
       closing_price_pct: closingPct,
       rasio,
       nilai_jaminan_dibutuhkan: nilaiJaminanDibutuhkan,
-      jumlah_unit_dibutuhkan: jumlahUnit,
+      nilai_nominal_dibutuhkan: nilaiNominalDibutuhkan,
       estimasi_pendanaan_aktual: estimasiPendanaanAktual,
       maturity_date: bondRow.maturity_date,
       kupon_pct: bondRow.kupon_pct,
@@ -383,7 +385,7 @@ const CalcEngine = (() => {
     simulateStockFunding,
     simulateBondFunding,
     computeRequiredStockLots,
-    computeRequiredBondUnits,
+    computeRequiredBondNominal,
     tentukanGroup,
     tentukanKategoriHaircut,
     getInterestRateSaham,
