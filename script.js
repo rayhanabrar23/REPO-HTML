@@ -23,6 +23,17 @@ const TICKER_DUMMY_DIR = { // fallback kalau live fetch gagal
 };
 
 /* ============================================================
+   HELPER — format tampilan "jumlah" efek (Lot untuk saham,
+   Nilai Nominal Rp untuk obligasi) secara konsisten di semua tempat.
+   ============================================================ */
+function formatJumlahEfek(it) {
+  if (it.jumlahIsRupiah) {
+    return `Rp ${Math.round(it.jumlah).toLocaleString('id-ID')} (Nominal)`;
+  }
+  return `${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`;
+}
+
+/* ============================================================
    HEADER SCROLL STATE
    ============================================================ */
 const header = document.getElementById('siteHeader');
@@ -109,12 +120,6 @@ if ('IntersectionObserver' in window) {
   `).join('');
 })();
 
-/* ============================================================
-   SIMULATOR — tersambung ke calc-engine.js asli (saham & obligasi)
-   Mendukung BANYAK EFEK sekaligus (jaminan gabungan) — user bisa
-   tambah baris efek sebanyak yang dibutuhkan lewat "+ Tambah Efek".
-   Field Kode Efek: ketik lalu pilih (datalist), bukan dropdown langsung.
-   ============================================================ */
 /* ============================================================
    SIMULATOR — tersambung ke calc-engine.js asli (saham & obligasi)
    Ada 2 INSTANCE terpisah di halaman:
@@ -420,6 +425,7 @@ function createSimulatorInstance(mode, ids) {
 
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
+              jumlah: jumlahLot, satuan: 'Lot', jumlahIsRupiah: false,
               jumlahDisplay: `${jumlahLot.toLocaleString('id-ID')} Lot`,
               estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.group,
               detailRows:
@@ -453,6 +459,7 @@ function createSimulatorInstance(mode, ids) {
 
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
+              jumlah: result.jumlah_lot_dibutuhkan, satuan: 'Lot', jumlahIsRupiah: false,
               jumlahDisplay: `${result.jumlah_lot_dibutuhkan.toLocaleString('id-ID')} Lot dibutuhkan`,
               estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.group,
               detailRows:
@@ -488,6 +495,7 @@ function createSimulatorInstance(mode, ids) {
 
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
+              jumlah: nilaiNominal, satuan: 'Nominal (Rp)', jumlahIsRupiah: true,
               jumlahDisplay: `Nominal ${rupiah(nilaiNominal)}`,
               estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.jenis_obligasi,
               detailRows:
@@ -507,6 +515,7 @@ function createSimulatorInstance(mode, ids) {
 
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
+              jumlah: result.nilai_nominal_dibutuhkan, satuan: 'Nominal (Rp)', jumlahIsRupiah: true,
               jumlahDisplay: `Nominal ${rupiah(result.nilai_nominal_dibutuhkan)} dibutuhkan`,
               estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.jenis_obligasi,
               detailRows:
@@ -757,5 +766,68 @@ createSimulatorInstance('reverse', {
     fieldLainnya.hidden = !isLainnya;
     inputLainnya.required = isLainnya;
     if (!isLainnya) inputLainnya.value = '';
+  });
+})();
+
+/* ============================================================
+   FORM SUBMISSION — via Web3Forms (gratis, tanpa backend)
+   Daftar & ambil access key gratis di https://web3forms.com
+   lalu ganti value pada <input name="access_key"> di index.html
+   ============================================================ */
+(function formHandler() {
+  const form = document.getElementById('pengajuanForm');
+  if (!form) return;
+
+  const statusEl = document.getElementById('formStatus');
+  const btnSubmit = document.getElementById('btnSubmit');
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const accessKey = form.querySelector('input[name="access_key"]').value;
+    if (!accessKey || accessKey.includes('GANTI_DENGAN')) {
+      statusEl.hidden = false;
+      statusEl.className = 'form-status err';
+      statusEl.textContent = 'Form belum terhubung ke layanan email — access_key belum diisi. Hubungi admin portal.';
+      return;
+    }
+
+    const hCaptchaResp = form.querySelector('textarea[name="h-captcha-response"]');
+    if (!hCaptchaResp || !hCaptchaResp.value) {
+      statusEl.hidden = false;
+      statusEl.className = 'form-status err';
+      statusEl.textContent = 'Mohon selesaikan verifikasi captcha terlebih dahulu.';
+      return;
+    }
+
+    btnSubmit.disabled = true;
+    btnSubmit.textContent = 'Mengirim...';
+
+    try {
+      const formData = new FormData(form);
+      const res = await fetch('https://api.web3forms.com/submit', {
+        method: 'POST',
+        headers: { 'Accept': 'application/json' },
+        body: formData,
+      });
+      const result = await res.json();
+
+      statusEl.hidden = false;
+      if (result.success) {
+        statusEl.className = 'form-status ok';
+        statusEl.textContent = 'Pengajuan berhasil dikirim! Tim kami akan segera menghubungi Anda.';
+        form.reset();
+      } else {
+        statusEl.className = 'form-status err';
+        statusEl.textContent = 'Pengajuan tercatat, namun notifikasi email gagal terkirim. Coba lagi nanti.';
+      }
+    } catch (err) {
+      statusEl.hidden = false;
+      statusEl.className = 'form-status err';
+      statusEl.textContent = 'Terjadi kendala koneksi. Mohon periksa internet Anda dan coba lagi.';
+    } finally {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Kirim Pengajuan';
+    }
   });
 })();
