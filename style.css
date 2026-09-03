@@ -370,7 +370,7 @@ a { text-decoration: none; color: inherit; }
 .flow-steps {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
+  align-items: stretch;
   gap: 0;
 }
 .flow-step {
@@ -381,6 +381,10 @@ a { text-decoration: none; color: inherit; }
   border-radius: 12px;
   padding: 1.1rem 1rem;
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease), border-color 0.25s var(--ease);
 }
 .flow-step:hover {
