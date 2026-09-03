@@ -115,24 +115,37 @@ if ('IntersectionObserver' in window) {
    tambah baris efek sebanyak yang dibutuhkan lewat "+ Tambah Efek".
    Field Kode Efek: ketik lalu pilih (datalist), bukan dropdown langsung.
    ============================================================ */
-(function simulator() {
-  const btn = document.getElementById('btnHitung');
+/* ============================================================
+   SIMULATOR — tersambung ke calc-engine.js asli (saham & obligasi)
+   Ada 2 INSTANCE terpisah di halaman:
+     - forward  ("Estimasi Pendanaan"): jumlah lot/nilai nominal -> estimasi pendanaan
+     - reverse  ("Kebutuhan Jaminan"): target pendanaan -> jumlah lot/nilai nominal dibutuhkan
+   Masing-masing punya elemen DOM sendiri (id berbeda), tapi logic & rumus
+   perhitungannya sama persis — dibungkus dalam factory createSimulatorInstance()
+   supaya tidak duplikasi kode.
+   Mendukung BANYAK EFEK sekaligus (jaminan gabungan) — user bisa
+   tambah baris efek sebanyak yang dibutuhkan lewat "+ Tambah Efek".
+   Field Kode Efek: ketik lalu pilih (datalist), bukan dropdown langsung.
+   ============================================================ */
+function createSimulatorInstance(mode, ids) {
+  const btn = document.getElementById(ids.btnHitung);
   if (!btn) return;
 
+  const isReverse = mode === 'reverse';
   const SIM_STORAGE_KEY = 'repoSimulasiTersimpan';
 
   const rupiah = (n) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
   const parseRupiahInput = (str) => parseFloat((str || '').replace(/\D/g, '')) || 0;
-  const resultBox = document.getElementById('resultBox');
-  const warnMsg = document.getElementById('warnMsg');
-  const btnSimpanSimulasi = document.getElementById('btnSimpanSimulasi');
-  const simSavedMsg = document.getElementById('simSavedMsg');
-  const modeSel = document.getElementById('modeSimulasi');
-  const tenorSel = document.getElementById('tenorSimulasi');
-  const efekList = document.getElementById('efekList');
-  const btnTambahEfek = document.getElementById('btnTambahEfek');
-  const totalTargetBox = document.getElementById('totalTargetBox');
-  const totalTargetValue = document.getElementById('totalTargetValue');
+
+  const resultBox = document.getElementById(ids.resultBox);
+  const warnMsg = document.getElementById(ids.warnMsg);
+  const btnSimpanSimulasi = document.getElementById(ids.btnSimpan);
+  const simSavedMsg = document.getElementById(ids.simSavedMsg);
+  const tenorSel = document.getElementById(ids.tenorSel);
+  const efekList = document.getElementById(ids.efekList);
+  const btnTambahEfek = document.getElementById(ids.btnTambahEfek);
+  const totalTargetBox = isReverse ? document.getElementById(ids.totalTargetBox) : null;
+  const totalTargetValue = isReverse ? document.getElementById(ids.totalTargetValue) : null;
 
   let simData = null; // hasil DataLoader.loadAll()
   let sahamOptions = []; // [{ kode_efek, display }]
@@ -141,11 +154,7 @@ if ('IntersectionObserver' in window) {
   let obligasiMap = {};   // display -> { kode_efek, is_korporasi }
   let currentSimPayload = null; // data hasil hitung terakhir, siap disimpan ke sessionStorage
   let rowIdCounter = 0;
-  const rows = new Map(); // rowId -> { el, jenisEl, kodeEl, datalistEl, jumlahField, jumlahLabelEl, jumlahInput, targetField, targetInput }
-
-  function isReverseMode() {
-    return modeSel.value === 'dana-ke-lot';
-  }
+  const rows = new Map(); // rowId -> { el, jenisEl, kodeEl, datalistEl, ... }
 
   function resetResultUI() {
     resultBox.hidden = true;
@@ -165,9 +174,9 @@ if ('IntersectionObserver' in window) {
   }
 
   function showResult({ label, value, metaHTML, payload }) {
-    document.getElementById('resultLabel').textContent = label;
-    document.getElementById('resultValue').textContent = value;
-    document.getElementById('resultMeta').innerHTML = metaHTML;
+    document.getElementById(ids.resultLabel).textContent = label;
+    document.getElementById(ids.resultValue).textContent = value;
+    document.getElementById(ids.resultMeta).innerHTML = metaHTML;
     resultBox.hidden = false;
     btnSimpanSimulasi.hidden = false;
     btnSimpanSimulasi.textContent = '💾 Simpan Simulasi Ini untuk Form Pengajuan';
@@ -198,10 +207,7 @@ if ('IntersectionObserver' in window) {
 
   // ---- Hitung total kebutuhan dana (mode reverse) dari semua baris, live ----
   function updateTotalTarget() {
-    if (!isReverseMode()) {
-      totalTargetBox.hidden = true;
-      return;
-    }
+    if (!isReverse) return;
     let total = 0;
     let adaIsi = false;
     rows.forEach((row) => {
@@ -217,46 +223,50 @@ if ('IntersectionObserver' in window) {
     totalTargetBox.hidden = false;
   }
 
-  // ---- Toggle field jumlah/target di semua baris sesuai mode global ----
-  function applyModeVisibilityAll() {
-    const reverse = isReverseMode();
-    btn.textContent = reverse ? 'Hitung Kebutuhan Lot/Unit' : 'Hitung Estimasi Pendanaan';
-    rows.forEach((row) => {
-      row.jumlahField.hidden = reverse;
-      row.targetField.hidden = !reverse;
-    });
-    updateTotalTarget();
-    resetResultUI();
-  }
-  modeSel.addEventListener('change', applyModeVisibilityAll);
-
   // ---- Isi datalist baris sesuai jenis efek (saham/obligasi) yang dipilih ----
   function fillRowDatalist(row) {
     const jenis = row.jenisEl.value;
     if (jenis === 'saham') {
       row.datalistEl.innerHTML = sahamOptions.map((o) => `<option value="${o.display}"></option>`).join('');
       row.kodeEl.placeholder = simData ? 'Ketik kode atau nama saham, lalu pilih...' : 'Memuat daftar saham...';
-      row.jumlahLabelEl.textContent = 'Jumlah Lot';
-      row.jumlahInput.step = '100';
-      row.jumlahInput.value = '100';
+      if (!isReverse) {
+        row.jumlahLotField.hidden = false;
+        row.jumlahNominalField.hidden = true;
+      }
     } else {
       row.datalistEl.innerHTML = obligasiOptions.map((o) => `<option value="${o.display}"></option>`).join('');
       row.kodeEl.placeholder = simData ? 'Ketik kode atau nama obligasi, lalu pilih...' : 'Memuat daftar obligasi...';
-      row.jumlahLabelEl.textContent = 'Jumlah Unit';
-      row.jumlahInput.step = '10';
-      row.jumlahInput.value = '100';
+      if (!isReverse) {
+        row.jumlahLotField.hidden = true;
+        row.jumlahNominalField.hidden = false;
+      }
     }
     row.kodeEl.value = '';
   }
 
   function createRow() {
     rowIdCounter += 1;
-    const id = rowIdCounter;
+    const id = `${mode}-${rowIdCounter}`;
 
     const wrap = document.createElement('div');
     wrap.className = 'sim-grid efek-row';
     wrap.dataset.rowId = String(id);
     wrap.style.cssText = 'border:1px solid rgba(0,0,0,0.1); border-radius:10px; padding:1rem 1rem 0.6rem; margin-bottom:1rem; position:relative;';
+
+    const jumlahFieldsHTML = isReverse
+      ? `<div class="field row-target-field">
+           <label>Kebutuhan Dana dari Efek Ini (Rp)</label>
+           <input type="text" inputmode="numeric" class="row-target" placeholder="Contoh: 5.000.000.000" />
+         </div>`
+      : `<div class="field row-jumlah-lot-field">
+           <label>Jumlah Lot</label>
+           <input type="number" class="row-jumlah-lot" min="1" step="100" value="100" />
+         </div>
+         <div class="field row-jumlah-nominal-field" hidden>
+           <label>Nilai Nominal Obligasi (Rp)</label>
+           <input type="text" inputmode="numeric" class="row-jumlah-nominal" placeholder="Contoh: 5.000.000.000" />
+         </div>`;
+
     wrap.innerHTML = `
       <button type="button" class="btn-hapus-row" title="Hapus efek ini"
               style="position:absolute; top:0.5rem; right:0.5rem; background:none; border:none; cursor:pointer; font-size:1.1rem; line-height:1; color:#888;">✕</button>
@@ -272,14 +282,7 @@ if ('IntersectionObserver' in window) {
         <input type="text" class="row-kode" list="dl-row-${id}" placeholder="Memuat daftar saham..." autocomplete="off" />
         <datalist id="dl-row-${id}"></datalist>
       </div>
-      <div class="field row-jumlah-field">
-        <label class="row-jumlah-label">Jumlah Lot</label>
-        <input type="number" class="row-jumlah" min="1" step="100" value="100" />
-      </div>
-      <div class="field row-target-field" hidden>
-        <label>Kebutuhan Dana dari Efek Ini (Rp)</label>
-        <input type="text" inputmode="numeric" class="row-target" placeholder="Contoh: 5.000.000.000" />
-      </div>
+      ${jumlahFieldsHTML}
     `;
     efekList.appendChild(wrap);
 
@@ -289,35 +292,39 @@ if ('IntersectionObserver' in window) {
       jenisEl: wrap.querySelector('.row-jenis'),
       kodeEl: wrap.querySelector('.row-kode'),
       datalistEl: wrap.querySelector(`#dl-row-${id}`),
-      jumlahField: wrap.querySelector('.row-jumlah-field'),
-      jumlahLabelEl: wrap.querySelector('.row-jumlah-label'),
-      jumlahInput: wrap.querySelector('.row-jumlah'),
-      targetField: wrap.querySelector('.row-target-field'),
-      targetInput: wrap.querySelector('.row-target'),
     };
-    rows.set(id, row);
 
+    if (isReverse) {
+      row.targetField = wrap.querySelector('.row-target-field');
+      row.targetInput = wrap.querySelector('.row-target');
+      row.targetInput.addEventListener('input', () => {
+        const raw = row.targetInput.value.replace(/\D/g, '');
+        row.targetInput.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+        updateTotalTarget();
+        resetResultUI();
+      });
+    } else {
+      row.jumlahLotField = wrap.querySelector('.row-jumlah-lot-field');
+      row.jumlahLotInput = wrap.querySelector('.row-jumlah-lot');
+      row.jumlahNominalField = wrap.querySelector('.row-jumlah-nominal-field');
+      row.jumlahNominalInput = wrap.querySelector('.row-jumlah-nominal');
+      row.jumlahLotInput.addEventListener('input', resetResultUI);
+      row.jumlahNominalInput.addEventListener('input', () => {
+        const raw = row.jumlahNominalInput.value.replace(/\D/g, '');
+        row.jumlahNominalInput.value = raw ? Number(raw).toLocaleString('id-ID') : '';
+        resetResultUI();
+      });
+    }
+
+    rows.set(id, row);
     fillRowDatalist(row);
-    row.jumlahField.hidden = isReverseMode();
-    row.targetField.hidden = !isReverseMode();
 
     row.jenisEl.addEventListener('change', () => {
       fillRowDatalist(row);
       resetResultUI();
     });
 
-    row.kodeEl.addEventListener('input', () => {
-      resetResultUI();
-    });
-
-    // ---- Format ribuan live saat mengetik (mis. "5000000000" -> "5.000.000.000") ----
-    row.targetInput.addEventListener('input', () => {
-      const raw = row.targetInput.value.replace(/\D/g, '');
-      row.targetInput.value = raw ? Number(raw).toLocaleString('id-ID') : '';
-      updateTotalTarget();
-      resetResultUI();
-    });
-    row.jumlahInput.addEventListener('input', resetResultUI);
+    row.kodeEl.addEventListener('input', resetResultUI);
 
     wrap.querySelector('.btn-hapus-row').addEventListener('click', () => {
       rows.delete(id);
@@ -358,6 +365,11 @@ if ('IntersectionObserver' in window) {
   // Mulai dengan 1 baris efek
   createRow();
 
+  const tableRow = (label, val, bold) => (
+    `<tr><td style="text-align:left; padding:0.3rem 0.8rem 0.3rem 0; color:var(--gray-600, #666); white-space:nowrap;">${label}</td>` +
+    `<td style="text-align:right; padding:0.3rem 0; ${bold ? 'font-weight:700;' : ''}">${val}</td></tr>`
+  );
+
   // ---- Hitung SEMUA baris efek sekaligus ----
   btn.addEventListener('click', async () => {
     if (!simData) {
@@ -369,18 +381,13 @@ if ('IntersectionObserver' in window) {
       return;
     }
     warnMsg.hidden = true;
-    const reverse = isReverseMode();
+    const tenorBulan = parseInt(tenorSel.value, 10) || 1;
     const origLabel = btn.textContent;
     btn.disabled = true;
 
     try {
-      const items = []; // hasil per-baris, siap ditampilkan & disimpan
+      const items = [];
       let rowIndex = 0;
-
-      const tableRow = (label, val, bold) => (
-        `<tr><td style="text-align:left; padding:0.3rem 0.8rem 0.3rem 0; color:var(--gray-600, #666); white-space:nowrap;">${label}</td>` +
-        `<td style="text-align:right; padding:0.3rem 0; ${bold ? 'font-weight:700;' : ''}">${val}</td></tr>`
-      );
 
       for (const row of rows.values()) {
         rowIndex += 1;
@@ -390,8 +397,8 @@ if ('IntersectionObserver' in window) {
         if (jenis === 'saham') {
           const kodeSaham = resolveKode(namaTampil, sahamMap);
 
-          if (!reverse) {
-            const jumlahLot = parseInt(row.jumlahInput.value, 10) || 0;
+          if (!isReverse) {
+            const jumlahLot = parseInt(row.jumlahLotInput.value, 10) || 0;
             if (!kodeSaham || jumlahLot <= 0) {
               showWarn(`Efek #${rowIndex}: mohon pilih kode saham dan isi jumlah lot terlebih dahulu.`);
               return;
@@ -413,7 +420,8 @@ if ('IntersectionObserver' in window) {
 
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
-              jumlah: jumlahLot, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.group,
+              jumlahDisplay: `${jumlahLot.toLocaleString('id-ID')} Lot`,
+              estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.group,
               detailRows:
                 tableRow('Harga Penutupan Terakhir', rupiah(marketMetrics.latest_close)) +
                 tableRow('Nilai Jaminan', rupiah(result.nilai_jaminan_final)) +
@@ -445,7 +453,8 @@ if ('IntersectionObserver' in window) {
 
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
-              jumlah: result.jumlah_lot_dibutuhkan, satuan: 'Lot', estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.group,
+              jumlahDisplay: `${result.jumlah_lot_dibutuhkan.toLocaleString('id-ID')} Lot dibutuhkan`,
+              estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.group,
               detailRows:
                 tableRow('Harga Penutupan Terakhir', rupiah(marketMetrics.latest_close)) +
                 tableRow('Jumlah Lembar', result.jumlah_lembar_dibutuhkan.toLocaleString('id-ID')) +
@@ -468,18 +477,19 @@ if ('IntersectionObserver' in window) {
             return;
           }
 
-          if (!reverse) {
-            const jumlahUnit = parseInt(row.jumlahInput.value, 10) || 0;
-            if (!kodeObligasi || jumlahUnit <= 0) {
-              showWarn(`Efek #${rowIndex}: mohon pilih kode obligasi dan isi jumlah unit terlebih dahulu.`);
+          if (!isReverse) {
+            const nilaiNominal = parseRupiahInput(row.jumlahNominalInput.value);
+            if (!kodeObligasi || nilaiNominal <= 0) {
+              showWarn(`Efek #${rowIndex}: mohon pilih kode obligasi dan isi nilai nominal terlebih dahulu.`);
               return;
             }
-            const result = CalcEngine.simulateBondFunding({ kodeObligasi, jumlahUnit, bondRow });
+            const result = CalcEngine.simulateBondFunding({ kodeObligasi, nilaiNominal, bondRow });
             if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
 
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
-              jumlah: jumlahUnit, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.jenis_obligasi,
+              jumlahDisplay: `Nominal ${rupiah(nilaiNominal)}`,
+              estimasiPendanaan: result.estimasi_pendanaan, rateKey: result.jenis_obligasi,
               detailRows:
                 tableRow('Nilai Jaminan', rupiah(result.nilai_jaminan)) +
                 tableRow('Rasio', `${(result.rasio * 100).toFixed(0)}%`) +
@@ -492,12 +502,13 @@ if ('IntersectionObserver' in window) {
               showWarn(`Efek #${rowIndex}: mohon pilih kode obligasi dan isi kebutuhan dana terlebih dahulu.`);
               return;
             }
-            const result = CalcEngine.computeRequiredBondUnits({ kodeObligasi, targetPendanaan, bondRow });
+            const result = CalcEngine.computeRequiredBondNominal({ kodeObligasi, targetPendanaan, bondRow });
             if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
 
             items.push({
               jenis: 'obligasi', kode: kodeObligasi, namaTampil: namaTampil || kodeObligasi,
-              jumlah: result.jumlah_unit_dibutuhkan, satuan: 'Unit', estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.jenis_obligasi,
+              jumlahDisplay: `Nominal ${rupiah(result.nilai_nominal_dibutuhkan)} dibutuhkan`,
+              estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.jenis_obligasi,
               detailRows:
                 tableRow('Rasio', `${(result.rasio * 100).toFixed(0)}%`) +
                 tableRow('Jenis', result.jenis_obligasi),
@@ -505,10 +516,6 @@ if ('IntersectionObserver' in window) {
           }
         }
       }
-
-      // ---- Gabungkan hasil semua baris ----
-      const totalEstimasiPendanaan = items.reduce((sum, it) => sum + it.estimasiPendanaan, 0);
-      const tenorBulan = parseInt(tenorSel.value, 10) || 1;
 
       // ---- Hitung kewajiban pembayaran (bunga) per efek, berdasarkan group/jenis-nya ----
       let totalBungaSemua = 0;
@@ -522,7 +529,7 @@ if ('IntersectionObserver' in window) {
           ? CalcEngine.getInterestRateSaham(it.rateKey)
           : CalcEngine.getInterestRateObligasi(it.rateKey);
         const bunga = CalcEngine.hitungKewajibanPembayaran({ pokokPinjaman: it.estimasiPendanaan, tenorBulan, rateAnnual });
-        it.bunga = bunga; // simpan di item supaya bisa dipakai render & disimpan ke sessionStorage
+        it.bunga = bunga;
         if (bunga.error) {
           adaRateTidakDitemukan = true;
         } else {
@@ -533,20 +540,20 @@ if ('IntersectionObserver' in window) {
         }
       });
 
+      // ---- Gabungkan hasil semua baris ----
+      const totalEstimasiPendanaan = items.reduce((sum, it) => sum + it.estimasiPendanaan, 0);
+
       const itemsHTML = items.map((it, i) => {
         const jenisLabel = it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi';
-        const jumlahLabel = reverse ? `${it.jumlah.toLocaleString('id-ID')} ${it.satuan} dibutuhkan` : `${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`;
-
         const bungaRows = it.bunga.error
           ? tableRow('⚠ Bunga', `<span style="color:var(--maroon-700)">${it.bunga.error}</span>`)
           : tableRow('Bunga (p.a.)', `${(it.bunga.rate_annual * 100).toFixed(0)}%`) +
             tableRow('Bunga per Bulan', rupiah(it.bunga.bunga_per_bulan)) +
-            tableRow(`Total Bunga (${tenorBulan} bulan)`, rupiah(it.bunga.total_bunga)) +
-            tableRow('Total yang Harus Dibayar', rupiah(it.bunga.total_pengembalian), true);
+            tableRow(`Total Bunga (${tenorBulan} bulan)`, rupiah(it.bunga.total_bunga));
 
         return (
           `<div style="margin-top:${i === 0 ? '0' : '1.1rem'}; padding-top:${i === 0 ? '0' : '1.1rem'}; ${i === 0 ? '' : 'border-top:1px dashed rgba(0,0,0,0.12);'} text-align:left;">` +
-          `<div style="font-weight:700; margin-bottom:0.4rem;">#${i + 1} — ${jenisLabel}: ${it.namaTampil} (${jumlahLabel})</div>` +
+          `<div style="font-weight:700; margin-bottom:0.4rem;">#${i + 1} — ${jenisLabel}: ${it.namaTampil} (${it.jumlahDisplay})</div>` +
           `<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">` +
           tableRow('Estimasi Pendanaan', rupiah(it.estimasiPendanaan)) +
           it.detailRows +
@@ -583,43 +590,40 @@ if ('IntersectionObserver' in window) {
         `</tbody></table>` +
         `</div>`;
 
+      // Kotak highlight khusus untuk angka akhir — biar jelas kelihatan, terpisah dari tabel lain.
+      const highlightHTML = adaRateTidakDitemukan ? '' :
+        `<div style="margin-top:1rem; padding:1rem 1.2rem; border-radius:12px; background:var(--maroon-700,#b03236); color:#fff; text-align:center;">` +
+        `<div style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.5px; opacity:0.85;">Total yang Harus Dibayar di Akhir Tenor (${tenorBulan} Bulan)</div>` +
+        `<div style="font-size:1.5rem; font-weight:700; margin-top:0.2rem;">${rupiah(totalPengembalianSemua)}</div>` +
+        `</div>`;
+
       const ringkasanBungaHTML = adaRateTidakDitemukan
         ? ''
         : `<div style="margin-top:1.1rem; padding-top:1.1rem; border-top:2px solid rgba(0,0,0,0.15); text-align:left;">` +
           `<div style="font-weight:700; margin-bottom:0.4rem;">Ringkasan Kewajiban Pembayaran (Tenor ${tenorBulan} Bulan)</div>` +
           `<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">` +
           tableRow('Total Bunga', rupiah(totalBungaSemua)) +
-          tableRow('Total yang Harus Dibayar di Akhir Tenor', rupiah(totalPengembalianSemua), true) +
           `</table>` +
           jadwalHTML +
+          highlightHTML +
           `</div>`;
 
-      let label, value, metaHTML;
-
-      if (reverse) {
-        // Angka besar di mode reverse = jumlah lot/unit yang dibutuhkan (bukan Rupiah),
-        // karena itu yang sebenarnya dicari user di mode ini.
-        const bySatuan = {};
-        items.forEach((it) => { bySatuan[it.satuan] = (bySatuan[it.satuan] || 0) + it.jumlah; });
-        value = Object.entries(bySatuan).map(([sat, jml]) => `${jml.toLocaleString('id-ID')} ${sat}`).join(' + ');
-        label = items.length > 1 ? `Kebutuhan Jaminan (${items.length} Efek)` : 'Kebutuhan Jaminan';
-        metaHTML =
-          `<table style="width:100%; border-collapse:collapse; font-size:0.85rem; text-align:left; margin-bottom:0.6rem;">` +
-          tableRow('Total Estimasi Pendanaan', rupiah(totalEstimasiPendanaan), true) +
-          `</table>` + itemsHTML + ringkasanBungaHTML;
-      } else {
-        // Mode forward: angka besar = total estimasi pendanaan (Rupiah) — ini yang dicari user.
-        value = rupiah(totalEstimasiPendanaan);
-        label = items.length > 1 ? `Total Estimasi Pendanaan Gabungan (${items.length} Efek)` : 'Estimasi Nilai Pendanaan';
-        metaHTML = itemsHTML + ringkasanBungaHTML;
-      }
+      // Angka besar (headline): selalu total estimasi pendanaan dalam Rupiah untuk kedua mode —
+      // untuk mode reverse, jumlah lot/nominal per efek TIDAK dijumlahkan jadi satu angka
+      // (karena beda jenis/satuan efek tidak bisa dijumlah begitu saja); rinciannya tetap
+      // ditampilkan lengkap per efek di tabel di bawah.
+      const label = isReverse
+        ? (items.length > 1 ? `Total Kebutuhan Pendanaan (${items.length} Efek)` : 'Kebutuhan Pendanaan')
+        : (items.length > 1 ? `Total Estimasi Pendanaan Gabungan (${items.length} Efek)` : 'Estimasi Nilai Pendanaan');
+      const value = rupiah(totalEstimasiPendanaan);
+      const metaHTML = itemsHTML + ringkasanBungaHTML;
 
       showResult({
         label,
         value,
         metaHTML,
         payload: {
-          mode: reverse ? 'dana-ke-lot' : 'lot-ke-dana',
+          mode,
           tenorBulan,
           items,
           totalEstimasiPendanaan,
@@ -636,7 +640,37 @@ if ('IntersectionObserver' in window) {
       btn.textContent = origLabel;
     }
   });
-})();
+}
+
+createSimulatorInstance('forward', {
+  btnHitung: 'btnHitungFwd',
+  resultBox: 'resultBoxFwd',
+  resultLabel: 'resultLabelFwd',
+  resultValue: 'resultValueFwd',
+  resultMeta: 'resultMetaFwd',
+  warnMsg: 'warnMsgFwd',
+  btnSimpan: 'btnSimpanSimulasiFwd',
+  simSavedMsg: 'simSavedMsgFwd',
+  tenorSel: 'tenorSimulasiFwd',
+  efekList: 'efekListFwd',
+  btnTambahEfek: 'btnTambahEfekFwd',
+});
+
+createSimulatorInstance('reverse', {
+  btnHitung: 'btnHitungRev',
+  resultBox: 'resultBoxRev',
+  resultLabel: 'resultLabelRev',
+  resultValue: 'resultValueRev',
+  resultMeta: 'resultMetaRev',
+  warnMsg: 'warnMsgRev',
+  btnSimpan: 'btnSimpanSimulasiRev',
+  simSavedMsg: 'simSavedMsgRev',
+  tenorSel: 'tenorSimulasiRev',
+  efekList: 'efekListRev',
+  btnTambahEfek: 'btnTambahEfekRev',
+  totalTargetBox: 'totalTargetBoxRev',
+  totalTargetValue: 'totalTargetValueRev',
+});
 
 /* ============================================================
    MUAT SIMULASI TERSIMPAN — ke Form Pengajuan
@@ -678,7 +712,7 @@ if ('IntersectionObserver' in window) {
     }
 
     const ringkasanPerEfek = saved.items
-      .map((it) => `${it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi'} ${it.namaTampil} (${it.jumlah.toLocaleString('id-ID')} ${it.satuan})`)
+      .map((it) => `${it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi'} ${it.namaTampil} (${it.jumlahDisplay})`)
       .join(' + ');
 
     metaEl.innerHTML =
@@ -692,7 +726,7 @@ if ('IntersectionObserver' in window) {
     if (!saved) return;
 
     const daftarEfek = saved.items
-      .map((it) => `${it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi'}: ${it.namaTampil} — ${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`)
+      .map((it) => `${it.jenis === 'saham' ? 'Saham/ETF' : 'Obligasi'}: ${it.namaTampil} — ${it.jumlahDisplay}`)
       .join('\n');
     fSaham.value = `${daftarEfek}\nTotal Estimasi Pendanaan Gabungan: ${rupiah(saved.totalEstimasiPendanaan)}`;
 
@@ -723,68 +757,5 @@ if ('IntersectionObserver' in window) {
     fieldLainnya.hidden = !isLainnya;
     inputLainnya.required = isLainnya;
     if (!isLainnya) inputLainnya.value = '';
-  });
-})();
-
-/* ============================================================
-   FORM SUBMISSION — via Web3Forms (gratis, tanpa backend)
-   Daftar & ambil access key gratis di https://web3forms.com
-   lalu ganti value pada <input name="access_key"> di index.html
-   ============================================================ */
-(function formHandler() {
-  const form = document.getElementById('pengajuanForm');
-  if (!form) return;
-
-  const statusEl = document.getElementById('formStatus');
-  const btnSubmit = document.getElementById('btnSubmit');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-
-    const accessKey = form.querySelector('input[name="access_key"]').value;
-    if (!accessKey || accessKey.includes('GANTI_DENGAN')) {
-      statusEl.hidden = false;
-      statusEl.className = 'form-status err';
-      statusEl.textContent = 'Form belum terhubung ke layanan email — access_key belum diisi. Hubungi admin portal.';
-      return;
-    }
-
-    const hCaptchaResp = form.querySelector('textarea[name="h-captcha-response"]');
-    if (!hCaptchaResp || !hCaptchaResp.value) {
-      statusEl.hidden = false;
-      statusEl.className = 'form-status err';
-      statusEl.textContent = 'Mohon selesaikan verifikasi captcha terlebih dahulu.';
-      return;
-    }
-
-    btnSubmit.disabled = true;
-    btnSubmit.textContent = 'Mengirim...';
-
-    try {
-      const formData = new FormData(form);
-      const res = await fetch('https://api.web3forms.com/submit', {
-        method: 'POST',
-        headers: { 'Accept': 'application/json' },
-        body: formData,
-      });
-      const result = await res.json();
-
-      statusEl.hidden = false;
-      if (result.success) {
-        statusEl.className = 'form-status ok';
-        statusEl.textContent = 'Pengajuan berhasil dikirim! Tim kami akan segera menghubungi Anda.';
-        form.reset();
-      } else {
-        statusEl.className = 'form-status err';
-        statusEl.textContent = 'Pengajuan tercatat, namun notifikasi email gagal terkirim. Coba lagi nanti.';
-      }
-    } catch (err) {
-      statusEl.hidden = false;
-      statusEl.className = 'form-status err';
-      statusEl.textContent = 'Terjadi kendala koneksi. Mohon periksa internet Anda dan coba lagi.';
-    } finally {
-      btnSubmit.disabled = false;
-      btnSubmit.textContent = 'Kirim Pengajuan';
-    }
   });
 })();
