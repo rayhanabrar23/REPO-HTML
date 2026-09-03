@@ -71,6 +71,30 @@
         <!-- populated by script.js from DOCUMENTS array, or shows empty state -->
       </div>
 
+      <h3 style="margin-top:2.2rem; margin-bottom:0.9rem; font-size:1.1rem; color:var(--maroon-900, #4A1018);">Alur Mekanisme Pendanaan Transaksi REPO</h3>
+      <div style="display:flex; flex-wrap:wrap; gap:0.8rem; align-items:stretch;">
+        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">1</div>
+          <div style="font-weight:600; font-size:0.88rem;">Lakukan Simulasi Perhitungan</div>
+        </div>
+        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">2</div>
+          <div style="font-weight:600; font-size:0.88rem;">Ajukan Pendanaan</div>
+        </div>
+        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">3</div>
+          <div style="font-weight:600; font-size:0.88rem;">Konfirmasi Persetujuan Pendanaan</div>
+        </div>
+        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">4</div>
+          <div style="font-weight:600; font-size:0.88rem;">Tanda Tangan Perjanjian</div>
+        </div>
+        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
+          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">5</div>
+          <div style="font-weight:600; font-size:0.88rem;">Terima Pencairan Pendanaan</div>
+        </div>
+      </div>
+
       <p class="section-desc" style="margin-top:2rem;">
         Informasi lebih lanjut terkait Transaksi Pendanaan REPO, silakan akses website resmi PEI.
       </p>
@@ -93,7 +117,7 @@
     </div>
   </section>
 
-  <!-- ================= SIMULATOR ================= -->
+  <!-- ================= SIMULATOR: INTRO ================= -->
   <section class="section section-alt" id="simulator">
     <div class="wrap reveal">
       <div class="section-head">
@@ -104,19 +128,26 @@
           <em>Nilai simulasi merupakan estimasi awal, nilai final tetap melalui proses evaluasi &amp; persetujuan.</em>
         </p>
       </div>
+      <div style="display:flex; gap:0.9rem; flex-wrap:wrap;">
+        <a href="#simulator-estimasi" class="btn btn-primary">Hitung Estimasi Pendanaan dari Efek yang Dimiliki</a>
+        <a href="#simulator-kebutuhan" class="btn" style="background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">Hitung Kebutuhan Jaminan untuk Target Pendanaan</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SIMULATOR 1: ESTIMASI PENDANAAN (forward) ================= -->
+  <section class="section" id="simulator-estimasi">
+    <div class="wrap reveal">
+      <div class="section-head">
+        <span class="tag">Simulator 1</span>
+        <h2>Estimasi Pendanaan dari Efek yang Dimiliki</h2>
+        <p class="section-desc">Masukkan jumlah lot saham dan/atau nilai nominal obligasi yang Anda miliki untuk mengetahui estimasi nilai pendanaan yang dapat diperoleh.</p>
+      </div>
 
       <div class="sim-card">
-        <div class="field" style="max-width:420px; margin-bottom:1.2rem;">
-          <label for="modeSimulasi">Jenis Simulasi</label>
-          <select id="modeSimulasi">
-            <option value="lot-ke-dana">Saya sudah tahu jumlah lot/unit → hitung estimasi pendanaan</option>
-            <option value="dana-ke-lot">Saya butuh dana sekian → hitung kebutuhan lot/unit</option>
-          </select>
-        </div>
-
         <div class="field" style="max-width:280px; margin-bottom:1.2rem;">
-          <label for="tenorSimulasi">Rencana Tenor (untuk hitung bunga)</label>
-          <select id="tenorSimulasi">
+          <label for="tenorSimulasiFwd">Rencana Tenor (untuk hitung bunga)</label>
+          <select id="tenorSimulasiFwd">
             <option value="1">1 Bulan</option>
             <option value="2">2 Bulan</option>
             <option value="3">3 Bulan</option>
@@ -130,26 +161,71 @@
           Bisa jaminkan lebih dari satu efek sekaligus — klik "+ Tambah Efek" untuk menambah baris.
         </p>
 
-        <div id="efekList"><!-- baris efek diisi otomatis oleh script.js --></div>
-        <button type="button" class="btn" id="btnTambahEfek"
-                style="margin-top:0.4rem; background:#fff; color:var(--maroon-700, #7a1f2b); border:1.5px solid var(--maroon-700, #7a1f2b);">+ Tambah Efek</button>
+        <div id="efekListFwd"><!-- baris efek diisi otomatis oleh script.js --></div>
+        <button type="button" class="btn" id="btnTambahEfekFwd"
+                style="margin-top:0.4rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">+ Tambah Efek</button>
 
-        <div class="result-box" id="totalTargetBox" hidden style="margin-top:1.2rem;">
+        <button class="btn btn-primary btn-block" id="btnHitungFwd" style="margin-top:1.2rem;">Hitung Estimasi Pendanaan</button>
+
+        <div class="result-box" id="resultBoxFwd" hidden>
+          <div class="result-label" id="resultLabelFwd">Estimasi Nilai Pendanaan</div>
+          <div class="result-value mono" id="resultValueFwd">Rp 0</div>
+          <div class="result-meta mono" id="resultMetaFwd"></div>
+        </div>
+        <button type="button" class="btn" id="btnSimpanSimulasiFwd" hidden
+                style="margin-top:0.8rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
+        <p class="form-status ok" id="simSavedMsgFwd" hidden style="margin-top:0.6rem;"></p>
+        <p class="warn-msg" id="warnMsgFwd" hidden></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SIMULATOR 2: KEBUTUHAN JAMINAN (reverse) ================= -->
+  <section class="section section-alt" id="simulator-kebutuhan">
+    <div class="wrap reveal">
+      <div class="section-head">
+        <span class="tag">Simulator 2</span>
+        <h2>Kebutuhan Jaminan untuk Target Pendanaan</h2>
+        <p class="section-desc">Masukkan target dana yang dibutuhkan untuk mengetahui jumlah lot saham dan/atau nilai nominal obligasi yang perlu Anda jaminkan.</p>
+      </div>
+
+      <div class="sim-card">
+        <div class="field" style="max-width:280px; margin-bottom:1.2rem;">
+          <label for="tenorSimulasiRev">Rencana Tenor (untuk hitung bunga)</label>
+          <select id="tenorSimulasiRev">
+            <option value="1">1 Bulan</option>
+            <option value="2">2 Bulan</option>
+            <option value="3">3 Bulan</option>
+            <option value="4">4 Bulan</option>
+            <option value="5">5 Bulan</option>
+            <option value="6">6 Bulan</option>
+          </select>
+        </div>
+
+        <p class="section-desc" style="margin-bottom:1rem;">
+          Bisa jaminkan lebih dari satu efek sekaligus — klik "+ Tambah Efek" untuk menambah baris.
+        </p>
+
+        <div id="efekListRev"><!-- baris efek diisi otomatis oleh script.js --></div>
+        <button type="button" class="btn" id="btnTambahEfekRev"
+                style="margin-top:0.4rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">+ Tambah Efek</button>
+
+        <div class="result-box" id="totalTargetBoxRev" hidden style="margin-top:1.2rem;">
           <div class="result-label">Total Kebutuhan Dana (dijumlah dari semua efek di atas)</div>
-          <div class="result-value mono" id="totalTargetValue">Rp 0</div>
+          <div class="result-value mono" id="totalTargetValueRev">Rp 0</div>
         </div>
 
-        <button class="btn btn-primary btn-block" id="btnHitung" style="margin-top:1.2rem;">Hitung Estimasi Pendanaan</button>
+        <button class="btn btn-primary btn-block" id="btnHitungRev" style="margin-top:1.2rem;">Hitung Kebutuhan Jaminan</button>
 
-        <div class="result-box" id="resultBox" hidden>
-          <div class="result-label" id="resultLabel">Estimasi Nilai Pendanaan</div>
-          <div class="result-value mono" id="resultValue">Rp 0</div>
-          <div class="result-meta mono" id="resultMeta"></div>
+        <div class="result-box" id="resultBoxRev" hidden>
+          <div class="result-label" id="resultLabelRev">Kebutuhan Jaminan</div>
+          <div class="result-value mono" id="resultValueRev">Rp 0</div>
+          <div class="result-meta mono" id="resultMetaRev"></div>
         </div>
-        <button type="button" class="btn" id="btnSimpanSimulasi" hidden
-                style="margin-top:0.8rem; background:#fff; color:var(--maroon-700, #7a1f2b); border:1.5px solid var(--maroon-700, #7a1f2b);">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
-        <p class="form-status ok" id="simSavedMsg" hidden style="margin-top:0.6rem;"></p>
-        <p class="warn-msg" id="warnMsg" hidden></p>
+        <button type="button" class="btn" id="btnSimpanSimulasiRev" hidden
+                style="margin-top:0.8rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
+        <p class="form-status ok" id="simSavedMsgRev" hidden style="margin-top:0.6rem;"></p>
+        <p class="warn-msg" id="warnMsgRev" hidden></p>
       </div>
     </div>
   </section>
@@ -243,10 +319,6 @@
           <textarea id="fSaham" name="Saham/Obligasi Diajukan" rows="3" placeholder="Contoh: BBCA 10.000 lembar, Obligasi ABC Seri A Rp500.000.000" required></textarea>
         </div>
 
-        <div class="captcha-wrap">
-          <div class="h-captcha" data-captcha="true"></div>
-        </div>
-
         <button type="submit" class="btn btn-primary btn-block" id="btnSubmit">Kirim Pengajuan</button>
 
         <p class="form-status" id="formStatus" hidden></p>
@@ -277,6 +349,5 @@
 <script src="js/calc-engine.js"></script>
 <script src="js/market-data.js"></script>
 <script src="script.js"></script>
-<script src="https://web3forms.com/client/script.js" async defer></script>
 </body>
 </html>
