@@ -72,26 +72,38 @@
       </div>
 
       <h3 style="margin-top:2.2rem; margin-bottom:0.9rem; font-size:1.1rem; color:var(--maroon-900, #4A1018);">Alur Mekanisme Pendanaan Transaksi REPO</h3>
-      <div style="display:flex; flex-wrap:wrap; gap:0.8rem; align-items:stretch;">
-        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
-          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">1</div>
-          <div style="font-weight:600; font-size:0.88rem;">Lakukan Simulasi Perhitungan</div>
+      <div class="flow-steps">
+        <div class="flow-step">
+          <div class="flow-badge">1</div>
+          <div class="flow-label">Lakukan Simulasi Perhitungan</div>
         </div>
-        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
-          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">2</div>
-          <div style="font-weight:600; font-size:0.88rem;">Ajukan Pendanaan</div>
+        <div class="flow-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </div>
-        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
-          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">3</div>
-          <div style="font-weight:600; font-size:0.88rem;">Konfirmasi Persetujuan Pendanaan</div>
+        <div class="flow-step">
+          <div class="flow-badge">2</div>
+          <div class="flow-label">Ajukan Pendanaan</div>
         </div>
-        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
-          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">4</div>
-          <div style="font-weight:600; font-size:0.88rem;">Tanda Tangan Perjanjian</div>
+        <div class="flow-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </div>
-        <div style="flex:1; min-width:150px; background:#fff; border:1px solid rgba(0,0,0,0.1); border-radius:12px; padding:1rem; text-align:center;">
-          <div style="width:32px; height:32px; margin:0 auto 0.6rem; border-radius:50%; background:var(--maroon-700, #b03236); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:0.9rem;">5</div>
-          <div style="font-weight:600; font-size:0.88rem;">Terima Pencairan Pendanaan</div>
+        <div class="flow-step">
+          <div class="flow-badge">3</div>
+          <div class="flow-label">Konfirmasi Persetujuan Pendanaan</div>
+        </div>
+        <div class="flow-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="flow-step">
+          <div class="flow-badge">4</div>
+          <div class="flow-label">Tanda Tangan Perjanjian</div>
+        </div>
+        <div class="flow-arrow" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </div>
+        <div class="flow-step">
+          <div class="flow-badge">5</div>
+          <div class="flow-label">Terima Pencairan Pendanaan</div>
         </div>
       </div>
 
@@ -130,7 +142,7 @@
       </div>
       <div style="display:flex; gap:0.9rem; flex-wrap:wrap;">
         <a href="#simulator-estimasi" class="btn btn-primary">Hitung Estimasi Pendanaan dari Efek yang Dimiliki</a>
-        <a href="#simulator-kebutuhan" class="btn" style="background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">Hitung Estimasi Jaminan untuk Pendanaan yang Diajukan</a>
+        <a href="#simulator-kebutuhan" class="btn btn-outline">Hitung Estimasi Jaminan untuk Pendanaan yang Diajukan</a>
       </div>
     </div>
   </section>
@@ -162,8 +174,7 @@
         </p>
 
         <div id="efekListFwd"><!-- baris efek diisi otomatis oleh script.js --></div>
-        <button type="button" class="btn" id="btnTambahEfekFwd"
-                style="margin-top:0.4rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">+ Tambah Efek</button>
+        <button type="button" class="btn btn-outline" id="btnTambahEfekFwd" style="margin-top:0.4rem;">+ Tambah Efek</button>
 
         <button class="btn btn-primary btn-block" id="btnHitungFwd" style="margin-top:1.2rem;">Hitung Estimasi Pendanaan</button>
 
@@ -172,8 +183,7 @@
           <div class="result-value mono" id="resultValueFwd">Rp 0</div>
           <div class="result-meta mono" id="resultMetaFwd"></div>
         </div>
-        <button type="button" class="btn" id="btnSimpanSimulasiFwd" hidden
-                style="margin-top:0.8rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
+        <button type="button" class="btn btn-outline" id="btnSimpanSimulasiFwd" hidden style="margin-top:0.8rem;">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
         <p class="form-status ok" id="simSavedMsgFwd" hidden style="margin-top:0.6rem;"></p>
         <p class="warn-msg" id="warnMsgFwd" hidden></p>
       </div>
@@ -207,8 +217,7 @@
         </p>
 
         <div id="efekListRev"><!-- baris efek diisi otomatis oleh script.js --></div>
-        <button type="button" class="btn" id="btnTambahEfekRev"
-                style="margin-top:0.4rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">+ Tambah Efek</button>
+        <button type="button" class="btn btn-outline" id="btnTambahEfekRev" style="margin-top:0.4rem;">+ Tambah Efek</button>
 
         <div class="result-box" id="totalTargetBoxRev" hidden style="margin-top:1.2rem;">
           <div class="result-label">Total Kebutuhan Dana (dijumlah dari semua efek di atas)</div>
@@ -222,8 +231,7 @@
           <div class="result-value mono" id="resultValueRev">Rp 0</div>
           <div class="result-meta mono" id="resultMetaRev"></div>
         </div>
-        <button type="button" class="btn" id="btnSimpanSimulasiRev" hidden
-                style="margin-top:0.8rem; background:#fff; color:var(--maroon-700, #b03236); border:1.5px solid var(--maroon-700, #b03236);">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
+        <button type="button" class="btn btn-outline" id="btnSimpanSimulasiRev" hidden style="margin-top:0.8rem;">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
         <p class="form-status ok" id="simSavedMsgRev" hidden style="margin-top:0.6rem;"></p>
         <p class="warn-msg" id="warnMsgRev" hidden></p>
       </div>
