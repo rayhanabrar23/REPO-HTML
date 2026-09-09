@@ -429,6 +429,7 @@ function createSimulatorInstance(mode, ids) {
 
     try {
       const items = [];
+      const efekKenaCapMaxPendanaan = []; // kumpulan nama efek saham yang estimasi pendanaannya dipangkas krn Rp20M
       let rowIndex = 0;
 
       for (const row of rows.values()) {
@@ -460,6 +461,9 @@ function createSimulatorInstance(mode, ids) {
             const result = CalcEngine.simulateStockFunding({ kodeSaham, jumlahLot, marketMetrics, instrumentRow, haircutRow, listedFfRow });
             if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
 
+            if (result.kena_cap_max_pendanaan) {
+              efekKenaCapMaxPendanaan.push(namaTampil || kodeSaham);
+            }
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
               jumlah: jumlahLot, satuan: 'Lot', jumlahIsRupiah: false,
@@ -494,6 +498,9 @@ function createSimulatorInstance(mode, ids) {
             const result = CalcEngine.computeRequiredStockLots({ kodeSaham, targetPendanaan, marketMetrics, instrumentRow, haircutRow, listedFfRow });
             if (result.error) { showWarn(`Efek #${rowIndex}: ${result.error}`); return; }
 
+            if (result.kena_cap_max_pendanaan) {
+              efekKenaCapMaxPendanaan.push(namaTampil || kodeSaham);
+            }
             items.push({
               jenis: 'saham', kode: kodeSaham, namaTampil: namaTampil || kodeSaham,
               jumlah: result.jumlah_lot_dibutuhkan, satuan: 'Lot', jumlahIsRupiah: false,
@@ -563,6 +570,13 @@ function createSimulatorInstance(mode, ids) {
             });
           }
         }
+      }
+
+      // Notifikasi pop-up (bukan error, kalkulasi tetap lanjut) kalau ada efek saham
+      // yang estimasi pendanaannya kepotong karena kena batas maksimum Rp20 miliar.
+      if (efekKenaCapMaxPendanaan.length > 0) {
+        const daftarEfek = efekKenaCapMaxPendanaan.join(', ');
+        showWarnModal(`Estimasi pendanaan untuk saham ${daftarEfek} melebihi batas maksimum Rp20.000.000.000 (Rp20 miliar) per saham, sehingga dipangkas ke batas tersebut sesuai kebijakan PEI. Rincian lengkap tetap ditampilkan di bawah.`);
       }
 
       // ---- Hitung kewajiban pembayaran (bunga) per efek, berdasarkan group/jenis-nya ----
