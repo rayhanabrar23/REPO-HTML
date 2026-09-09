@@ -293,6 +293,63 @@ a { text-decoration: none; color: inherit; }
 .result-meta { font-size: 0.8rem; color: var(--gray-600); }
 .warn-msg { color: var(--maroon-700); font-size: 0.88rem; margin-top: 1rem; }
 
+/* ============================================================
+   MODAL PERINGATAN — pop-up di tengah layar, ganti teks kecil
+   warn-msg yang lama (kurang kelihatan). Dipakai bersama oleh
+   kedua instance simulator lewat satu elemen di akhir <body>.
+   ============================================================ */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 6, 9, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.2rem;
+  z-index: 1000;
+}
+.modal-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.8rem 1.6rem 1.6rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+}
+.modal-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 0.9rem;
+  border-radius: 50%;
+  background: var(--maroon-100, #F3E4E6);
+  color: var(--maroon-700, #b03236);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+.modal-message {
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--maroon-900, #4A1018);
+  margin-bottom: 1.3rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .modal-overlay {
+    opacity: 0;
+    animation: modalFadeIn 0.18s ease forwards;
+  }
+  .modal-box {
+    transform: scale(0.94) translateY(6px);
+    animation: modalBoxIn 0.22s var(--ease) forwards;
+  }
+}
+@keyframes modalFadeIn { to { opacity: 1; } }
+@keyframes modalBoxIn { to { transform: scale(1) translateY(0); } }
+
 /* ---- form status ---- */
 .form-status {
   margin-top: 1rem;
