@@ -33,6 +33,16 @@ function formatJumlahEfek(it) {
   return `${it.jumlah.toLocaleString('id-ID')} ${it.satuan}`;
 }
 
+// Format tanggal maturity obligasi dari "DD-MMM-YYYY" (mis. "06-FEB-2027",
+// format asli statis_efek.json) jadi lebih enak dibaca: "06 Feb 2027".
+function formatTanggalObligasi(str) {
+  if (!str) return '-';
+  const parts = String(str).split('-');
+  if (parts.length !== 3) return str;
+  const bulan = parts[1].charAt(0).toUpperCase() + parts[1].slice(1).toLowerCase();
+  return `${parts[0]} ${bulan} ${parts[2]}`;
+}
+
 /* ============================================================
    MODAL PERINGATAN — dipakai bersama oleh kedua simulator (forward
    & reverse). Menggantikan teks kecil warn-msg yang lama supaya
@@ -528,7 +538,8 @@ function createSimulatorInstance(mode, ids) {
               detailRows:
                 tableRow('Nilai Jaminan', rupiah(result.nilai_jaminan)) +
                 tableRow('Rasio', `${(result.rasio * 100).toFixed(0)}%`) +
-                tableRow('Jenis', result.jenis_obligasi),
+                tableRow('Jenis', result.jenis_obligasi) +
+                tableRow('Jatuh Tempo', formatTanggalObligasi(result.maturity_date)),
             });
 
           } else {
@@ -547,7 +558,8 @@ function createSimulatorInstance(mode, ids) {
               estimasiPendanaan: result.estimasi_pendanaan_aktual, rateKey: result.jenis_obligasi,
               detailRows:
                 tableRow('Rasio', `${(result.rasio * 100).toFixed(0)}%`) +
-                tableRow('Jenis', result.jenis_obligasi),
+                tableRow('Jenis', result.jenis_obligasi) +
+                tableRow('Jatuh Tempo', formatTanggalObligasi(result.maturity_date)),
             });
           }
         }
