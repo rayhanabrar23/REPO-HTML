@@ -131,14 +131,15 @@ const CalcEngine = (() => {
     // (Catatan: matrix RASIO_SAHAM_MATRIX.NON_MARJIN tetap ada di atas untuk referensi
     // historis, tapi sengaja tidak pernah dipakai karena kebijakan ini.)
     if (group === "NON_MARJIN") {
-      return { error: `${kodeSaham} tidak eligible untuk dijadikan jaminan Transaksi REPO (non-marjin). Silakan pilih saham lain.` };
+      return { error: `Saham ${kodeSaham} tidak eligible untuk dijadikan jaminan Transaksi REPO karena tergolong saham non-marjin. Silakan pilih saham lain.` };
     }
 
-    // Batas harga minimum saham — pakai harga terendah (buffer konservatif) yang
-    // sama dengan yang dipakai untuk hitung Nilai Jaminan, biar konsisten.
-    const hargaTerendahCek = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
-    if (hargaTerendahCek < MIN_HARGA_SAHAM) {
-      return { error: `${kodeSaham} harganya Rp${hargaTerendahCek.toLocaleString('id-ID')} — di bawah batas minimum Rp${MIN_HARGA_SAHAM.toLocaleString('id-ID')} untuk dijadikan jaminan Transaksi REPO. Silakan pilih saham lain.` };
+    // Batas harga minimum saham — pakai closing price terbaru murni (bukan rata-rata
+    // 3 bulan yang bisa pecahan/desimal dan bikin angkanya terkesan janggal saat
+    // ditampilkan). Ini juga lebih intuitif: "harga saham sekarang" ya closing price
+    // terakhir, bukan buffer konservatif yang dipakai khusus untuk hitung Nilai Jaminan.
+    if (marketMetrics.latest_close < MIN_HARGA_SAHAM) {
+      return { error: `Harga saham ${kodeSaham} saat ini Rp${Math.round(marketMetrics.latest_close).toLocaleString('id-ID')}, berada di bawah batas minimum Rp${MIN_HARGA_SAHAM.toLocaleString('id-ID')} yang dipersyaratkan sebagai jaminan Transaksi REPO. Silakan pilih saham lain yang memenuhi ketentuan tersebut.` };
     }
 
     const haircutPct = haircutRow.haircut_kpei_pct;
@@ -309,7 +310,7 @@ const CalcEngine = (() => {
     const now = new Date();
     const batasMaturity = new Date(now.getFullYear() + MAX_MATURITY_TAHUN, now.getMonth(), now.getDate());
     if (maturity >= batasMaturity) {
-      return { error: `${kodeObligasi} jatuh tempo ${bondRow.maturity_date} — sisa tenor masih ${MAX_MATURITY_TAHUN} tahun atau lebih, tidak eligible dijadikan jaminan Transaksi REPO. Silakan pilih obligasi lain.` };
+      return { error: `Obligasi ${kodeObligasi} memiliki sisa tenor hingga jatuh tempo (${bondRow.maturity_date}) yang mencapai ${MAX_MATURITY_TAHUN} tahun atau lebih, sehingga belum eligible untuk dijadikan jaminan Transaksi REPO. Silakan pilih obligasi lain.` };
     }
     return {};
   }
