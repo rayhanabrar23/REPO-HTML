@@ -185,7 +185,6 @@
         </div>
         <button type="button" class="btn btn-outline" id="btnSimpanSimulasiFwd" hidden style="margin-top:0.8rem;">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
         <p class="form-status ok" id="simSavedMsgFwd" hidden style="margin-top:0.6rem;"></p>
-        <p class="warn-msg" id="warnMsgFwd" hidden></p>
       </div>
     </div>
   </section>
@@ -233,7 +232,6 @@
         </div>
         <button type="button" class="btn btn-outline" id="btnSimpanSimulasiRev" hidden style="margin-top:0.8rem;">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
         <p class="form-status ok" id="simSavedMsgRev" hidden style="margin-top:0.6rem;"></p>
-        <p class="warn-msg" id="warnMsgRev" hidden></p>
       </div>
     </div>
   </section>
@@ -368,6 +366,15 @@
     </div>
   </div>
 </footer>
+
+<!-- ================= MODAL PERINGATAN (dipakai bersama oleh kedua simulator) ================= -->
+<div class="modal-overlay" id="warnModalOverlay" hidden>
+  <div class="modal-box" role="alertdialog" aria-modal="true">
+    <div class="modal-icon" aria-hidden="true">⚠</div>
+    <p class="modal-message" id="warnModalMessage"></p>
+    <button type="button" class="btn btn-primary btn-block" id="warnModalClose">Mengerti</button>
+  </div>
+</div>
 
 <script src="js/data-loader.js"></script>
 <script src="js/calc-engine.js"></script>
