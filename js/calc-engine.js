@@ -156,6 +156,12 @@ const CalcEngine = (() => {
   // batas maks pendanaan Rp20 miliar), dalam Rupiah. Independen dari jumlah lot/dana
   // yang diminta. Cap ketiga (maks pendanaan) dikonversi dulu ke "ruang nilai jaminan"
   // (dikali recommendedRatio) supaya bisa dibandingkan apples-to-apples dengan 2 cap lainnya.
+  // Cap nilai jaminan per saham (5% Listed Shares Value / 20% Free Float Value /
+  // batas maks pendanaan Rp20 miliar), dalam Rupiah. Independen dari jumlah lot/dana
+  // yang diminta. Cap ketiga (maks pendanaan) dikonversi dulu ke "ruang nilai jaminan"
+  // (dikali recommendedRatio) supaya bisa dibandingkan apples-to-apples dengan 2 cap lainnya.
+  // Return juga capSource: cap mana yang jadi pemenang (paling ketat), supaya caller bisa
+  // tahu spesifik alasan kena cap (mis. buat munculin pop-up khusus kasus Rp20 miliar).
   function hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio }) {
     const listedShares = listedFfRow.listed_shares;
     const freeFloatShares = listedFfRow.free_float_shares;
@@ -164,8 +170,16 @@ const CalcEngine = (() => {
     const capListed = listedSharesValue != null ? listedSharesValue * CAP_PCT_LISTED_SHARES : null;
     const capFreefloat = freeFloatValue != null ? freeFloatValue * CAP_PCT_FREE_FLOAT : null;
     const capMaxPendanaan = MAX_PENDANAAN_SAHAM * recommendedRatio;
-    const caps = [capListed, capFreefloat, capMaxPendanaan].filter((c) => c != null);
-    return caps.length ? Math.min(...caps) : null;
+
+    const kandidat = [
+      { value: capListed, source: "listed_shares" },
+      { value: capFreefloat, source: "free_float" },
+      { value: capMaxPendanaan, source: "max_pendanaan" },
+    ].filter((k) => k.value != null);
+
+    if (!kandidat.length) return { cap: null, capSource: null };
+    const terpilih = kandidat.reduce((a, b) => (b.value < a.value ? b : a));
+    return { cap: terpilih.value, capSource: terpilih.source };
   }
 
   // ------------------------------------------------------------
@@ -190,10 +204,11 @@ const CalcEngine = (() => {
     const nilaiJaminanMentah = jumlahLembar * hargaTerendah;
 
     // Cap per saham (5% Listed Shares / 20% Free Float / maks Rp20 miliar)
-    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio });
+    const { cap: maxCollValue, capSource } = hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio });
 
     const nilaiJaminanFinal = maxCollValue != null ? Math.min(nilaiJaminanMentah, maxCollValue) : nilaiJaminanMentah;
     const kenaCap = maxCollValue != null && nilaiJaminanMentah > maxCollValue;
+    const kenaCapMaxPendanaan = kenaCap && capSource === "max_pendanaan";
 
     // Estimasi pendanaan
     const estimasiPendanaan = nilaiJaminanFinal / recommendedRatio;
@@ -214,6 +229,7 @@ const CalcEngine = (() => {
       nilai_jaminan_mentah: nilaiJaminanMentah,
       max_coll_value_cap: maxCollValue,
       kena_cap: kenaCap,
+      kena_cap_max_pendanaan: kenaCapMaxPendanaan,
       nilai_jaminan_final: nilaiJaminanFinal,
       estimasi_pendanaan: estimasiPendanaan,
     };
@@ -239,12 +255,13 @@ const CalcEngine = (() => {
     const { group, haircutPct, kategoriHaircut, recommendedRatio } = rasioInfo;
 
     const hargaTerendah = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
-    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio });
+    const { cap: maxCollValue, capSource } = hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio });
     const maxPendanaanDariCap = maxCollValue != null ? maxCollValue / recommendedRatio : null;
 
     // Nilai jaminan dibutuhkan supaya dana yang diminta terpenuhi
     const nilaiJaminanDibutuhkan = targetPendanaan * recommendedRatio;
     const kenaCap = maxCollValue != null && nilaiJaminanDibutuhkan > maxCollValue;
+    const kenaCapMaxPendanaan = kenaCap && capSource === "max_pendanaan";
     const nilaiJaminanDipakai = kenaCap ? maxCollValue : nilaiJaminanDibutuhkan;
 
     // Jumlah lembar -> dibulatkan ke atas ke kelipatan 1 lot (100 lembar)
@@ -270,6 +287,7 @@ const CalcEngine = (() => {
       max_coll_value_cap: maxCollValue,
       max_pendanaan_dari_cap: maxPendanaanDariCap,
       kena_cap: kenaCap,
+      kena_cap_max_pendanaan: kenaCapMaxPendanaan,
       jumlah_lembar_dibutuhkan: jumlahLembar,
       jumlah_lot_dibutuhkan: jumlahLot,
       estimasi_pendanaan_aktual: estimasiPendanaanAktual,
