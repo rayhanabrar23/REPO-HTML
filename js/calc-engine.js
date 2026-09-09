@@ -68,6 +68,26 @@ const CalcEngine = (() => {
   const RASIO_OBLIGASI_KORPORASI = 1.05; // flat 105% untuk semua obligasi korporasi (tidak ada pilihan kategori risiko)
   const RASIO_OBLIGASI_PEMERINTAH = 1.0;
 
+  // ---- Batasan tambahan (poin baru) ----
+  const MIN_HARGA_SAHAM = 300; // Rp — saham dengan harga di bawah ini otomatis ditolak sebagai jaminan REPO
+  const MAX_PENDANAAN_SAHAM = 20_000_000_000; // Rp 20 miliar — estimasi pendanaan dari satu saham tidak boleh melebihi ini
+  const MAX_MATURITY_TAHUN = 5; // obligasi dengan sisa jatuh tempo >= 5 tahun dari hari ini tidak eligible
+
+  // Parser tanggal "DD-MMM-YYYY" (mis. "06-FEB-2027") — format asli di
+  // data/statis_efek.json. SENGAJA tidak pakai new Date(string) langsung:
+  // format non-ISO seperti ini "implementation-defined" di spec JS, jadi
+  // parsingnya bisa beda-beda antar browser (aman di Chrome, belum tentu di
+  // browser lain). Parser manual ini konsisten di semua browser.
+  const NAMA_BULAN = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+  function parseTanggalDDMMMYYYY(str) {
+    if (!str) return null;
+    const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(str).trim());
+    if (!m) return null;
+    const bulan = NAMA_BULAN[m[2].toUpperCase()];
+    if (bulan == null) return null;
+    return new Date(parseInt(m[3], 10), bulan, parseInt(m[1], 10));
+  }
+
   // ------------------------------------------------------------
   // Helper functions
   // ------------------------------------------------------------
@@ -114,6 +134,13 @@ const CalcEngine = (() => {
       return { error: `${kodeSaham} tidak eligible untuk dijadikan jaminan Transaksi REPO (non-marjin). Silakan pilih saham lain.` };
     }
 
+    // Batas harga minimum saham — pakai harga terendah (buffer konservatif) yang
+    // sama dengan yang dipakai untuk hitung Nilai Jaminan, biar konsisten.
+    const hargaTerendahCek = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
+    if (hargaTerendahCek < MIN_HARGA_SAHAM) {
+      return { error: `${kodeSaham} harganya Rp${hargaTerendahCek.toLocaleString('id-ID')} — di bawah batas minimum Rp${MIN_HARGA_SAHAM.toLocaleString('id-ID')} untuk dijadikan jaminan Transaksi REPO. Silakan pilih saham lain.` };
+    }
+
     const haircutPct = haircutRow.haircut_kpei_pct;
     if (haircutPct == null) {
       return { error: `Haircut KPEI untuk ${kodeSaham} tidak ditemukan` };
@@ -124,16 +151,19 @@ const CalcEngine = (() => {
     return { group, haircutPct, kategoriHaircut, tier, recommendedRatio };
   }
 
-  // Cap nilai jaminan per saham (5% Listed Shares Value / 20% Free Float Value),
-  // dalam Rupiah. Independen dari jumlah lot/dana yang diminta.
-  function hitungCapSaham({ hargaTerendah, listedFfRow }) {
+  // Cap nilai jaminan per saham (5% Listed Shares Value / 20% Free Float Value /
+  // batas maks pendanaan Rp20 miliar), dalam Rupiah. Independen dari jumlah lot/dana
+  // yang diminta. Cap ketiga (maks pendanaan) dikonversi dulu ke "ruang nilai jaminan"
+  // (dikali recommendedRatio) supaya bisa dibandingkan apples-to-apples dengan 2 cap lainnya.
+  function hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio }) {
     const listedShares = listedFfRow.listed_shares;
     const freeFloatShares = listedFfRow.free_float_shares;
     const listedSharesValue = listedShares ? listedShares * hargaTerendah : null;
     const freeFloatValue = freeFloatShares ? freeFloatShares * hargaTerendah : null;
     const capListed = listedSharesValue != null ? listedSharesValue * CAP_PCT_LISTED_SHARES : null;
     const capFreefloat = freeFloatValue != null ? freeFloatValue * CAP_PCT_FREE_FLOAT : null;
-    const caps = [capListed, capFreefloat].filter((c) => c != null);
+    const capMaxPendanaan = MAX_PENDANAAN_SAHAM * recommendedRatio;
+    const caps = [capListed, capFreefloat, capMaxPendanaan].filter((c) => c != null);
     return caps.length ? Math.min(...caps) : null;
   }
 
@@ -158,8 +188,8 @@ const CalcEngine = (() => {
     const hargaTerendah = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
     const nilaiJaminanMentah = jumlahLembar * hargaTerendah;
 
-    // Cap per saham (5% Listed Shares / 20% Free Float)
-    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow });
+    // Cap per saham (5% Listed Shares / 20% Free Float / maks Rp20 miliar)
+    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio });
 
     const nilaiJaminanFinal = maxCollValue != null ? Math.min(nilaiJaminanMentah, maxCollValue) : nilaiJaminanMentah;
     const kenaCap = maxCollValue != null && nilaiJaminanMentah > maxCollValue;
@@ -208,7 +238,7 @@ const CalcEngine = (() => {
     const { group, haircutPct, kategoriHaircut, recommendedRatio } = rasioInfo;
 
     const hargaTerendah = Math.min(marketMetrics.avg_close_3m, marketMetrics.latest_close);
-    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow });
+    const maxCollValue = hitungCapSaham({ hargaTerendah, listedFfRow, recommendedRatio });
     const maxPendanaanDariCap = maxCollValue != null ? maxCollValue / recommendedRatio : null;
 
     // Nilai jaminan dibutuhkan supaya dana yang diminta terpenuhi
@@ -267,6 +297,23 @@ const CalcEngine = (() => {
     return { jenisObligasi: "Korporasi", rasio: RASIO_OBLIGASI_KORPORASI, tipe };
   }
 
+  // Lapisan pengaman kedua (defense-in-depth) — data-loader.js sudah memfilter
+  // dropdown obligasi supaya hanya yang maturity < 5 tahun yang muncul, tapi
+  // dicek ulang di sini juga untuk jaga-jaga kalau kodeObligasi somehow lolos
+  // dari filter itu (mis. diketik manual, bukan dipilih dari daftar).
+  function cekMaturityObligasi(kodeObligasi, bondRow) {
+    const maturity = parseTanggalDDMMMYYYY(bondRow.maturity_date);
+    if (!maturity) {
+      return { error: `Data jatuh tempo untuk ${kodeObligasi} tidak ditemukan/tidak valid` };
+    }
+    const now = new Date();
+    const batasMaturity = new Date(now.getFullYear() + MAX_MATURITY_TAHUN, now.getMonth(), now.getDate());
+    if (maturity >= batasMaturity) {
+      return { error: `${kodeObligasi} jatuh tempo ${bondRow.maturity_date} — sisa tenor masih ${MAX_MATURITY_TAHUN} tahun atau lebih, tidak eligible dijadikan jaminan Transaksi REPO. Silakan pilih obligasi lain.` };
+    }
+    return {};
+  }
+
   function simulateBondFunding({
     kodeObligasi,
     nilaiNominal, // Rp — nilai nominal obligasi yang dijaminkan, diinput langsung oleh user
@@ -275,6 +322,9 @@ const CalcEngine = (() => {
     if (!nilaiNominal || nilaiNominal <= 0) {
       return { error: "Nilai nominal obligasi harus lebih dari 0" };
     }
+
+    const maturityCheck = cekMaturityObligasi(kodeObligasi, bondRow);
+    if (maturityCheck.error) return maturityCheck;
 
     const closingPct = bondRow.closing_price_pct;
     if (closingPct == null) {
@@ -313,6 +363,9 @@ const CalcEngine = (() => {
     if (!targetPendanaan || targetPendanaan <= 0) {
       return { error: "Kebutuhan pendanaan harus lebih dari 0" };
     }
+
+    const maturityCheck = cekMaturityObligasi(kodeObligasi, bondRow);
+    if (maturityCheck.error) return maturityCheck;
 
     const closingPct = bondRow.closing_price_pct;
     if (closingPct == null) {
