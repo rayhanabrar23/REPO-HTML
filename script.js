@@ -34,6 +34,36 @@ function formatJumlahEfek(it) {
 }
 
 /* ============================================================
+   MODAL PERINGATAN — dipakai bersama oleh kedua simulator (forward
+   & reverse). Menggantikan teks kecil warn-msg yang lama supaya
+   peringatan lebih kelihatan (pop-up di tengah layar, bukan
+   keterangan kecil di bawah tombol).
+   ============================================================ */
+function showWarnModal(msg) {
+  const overlay = document.getElementById('warnModalOverlay');
+  const msgEl = document.getElementById('warnModalMessage');
+  if (!overlay || !msgEl) return;
+  msgEl.textContent = msg;
+  overlay.hidden = false;
+}
+function hideWarnModal() {
+  const overlay = document.getElementById('warnModalOverlay');
+  if (overlay) overlay.hidden = true;
+}
+(function warnModalSetup() {
+  const overlay = document.getElementById('warnModalOverlay');
+  const closeBtn = document.getElementById('warnModalClose');
+  if (!overlay || !closeBtn) return;
+  closeBtn.addEventListener('click', hideWarnModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) hideWarnModal();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !overlay.hidden) hideWarnModal();
+  });
+})();
+
+/* ============================================================
    HEADER SCROLL STATE
    ============================================================ */
 const header = document.getElementById('siteHeader');
@@ -143,7 +173,6 @@ function createSimulatorInstance(mode, ids) {
   const parseRupiahInput = (str) => parseFloat((str || '').replace(/\D/g, '')) || 0;
 
   const resultBox = document.getElementById(ids.resultBox);
-  const warnMsg = document.getElementById(ids.warnMsg);
   const btnSimpanSimulasi = document.getElementById(ids.btnSimpan);
   const simSavedMsg = document.getElementById(ids.simSavedMsg);
   const tenorSel = document.getElementById(ids.tenorSel);
@@ -163,15 +192,13 @@ function createSimulatorInstance(mode, ids) {
 
   function resetResultUI() {
     resultBox.hidden = true;
-    warnMsg.hidden = true;
     btnSimpanSimulasi.hidden = true;
     simSavedMsg.hidden = true;
     currentSimPayload = null;
   }
 
   function showWarn(msg) {
-    warnMsg.textContent = msg;
-    warnMsg.hidden = false;
+    showWarnModal(msg);
     resultBox.hidden = true;
     btnSimpanSimulasi.hidden = true;
     simSavedMsg.hidden = true;
@@ -385,7 +412,7 @@ function createSimulatorInstance(mode, ids) {
       showWarn('Tambahkan minimal satu efek terlebih dahulu.');
       return;
     }
-    warnMsg.hidden = true;
+    hideWarnModal();
     const tenorBulan = parseInt(tenorSel.value, 10) || 1;
     const origLabel = btn.textContent;
     btn.disabled = true;
@@ -608,8 +635,8 @@ function createSimulatorInstance(mode, ids) {
 
       const ringkasanBungaHTML = adaRateTidakDitemukan
         ? ''
-        : `<div style="margin-top:1.1rem; padding-top:1.1rem; border-top:2px solid rgba(0,0,0,0.15); text-align:left;">` +
-          `<div style="font-weight:700; margin-bottom:0.4rem;">Ringkasan Kewajiban Pembayaran (Tenor ${tenorBulan} Bulan)</div>` +
+        : `<div style="margin-top:1.3rem; background:#fff; border:1.5px solid rgba(122,30,40,0.25); border-radius:14px; padding:1.1rem 1.2rem 1.2rem; text-align:left; box-shadow:0 4px 14px rgba(74,16,24,0.06);">` +
+          `<div style="font-weight:700; margin-bottom:0.6rem; font-size:0.95rem; color:var(--maroon-900,#4A1018);">Ringkasan Kewajiban Pembayaran (Tenor ${tenorBulan} Bulan)</div>` +
           `<table style="width:100%; border-collapse:collapse; font-size:0.85rem;">` +
           tableRow('Total Bunga', rupiah(totalBungaSemua)) +
           `</table>` +
@@ -657,7 +684,6 @@ createSimulatorInstance('forward', {
   resultLabel: 'resultLabelFwd',
   resultValue: 'resultValueFwd',
   resultMeta: 'resultMetaFwd',
-  warnMsg: 'warnMsgFwd',
   btnSimpan: 'btnSimpanSimulasiFwd',
   simSavedMsg: 'simSavedMsgFwd',
   tenorSel: 'tenorSimulasiFwd',
@@ -671,7 +697,6 @@ createSimulatorInstance('reverse', {
   resultLabel: 'resultLabelRev',
   resultValue: 'resultValueRev',
   resultMeta: 'resultMetaRev',
-  warnMsg: 'warnMsgRev',
   btnSimpan: 'btnSimpanSimulasiRev',
   simSavedMsg: 'simSavedMsgRev',
   tenorSel: 'tenorSimulasiRev',
