@@ -13,12 +13,34 @@
      - Currency: IDR saja (obligasi USD dikecualikan karena skema
        harga/nominalnya beda, tidak cocok dengan rumus yang dipakai)
      - Status: ACTIVE
+   Ditambah filter di getObligasiOptions() (bukan di file JSON-nya):
+     - Maturity < 5 tahun dari hari ini — obligasi yang jatuh temponya
+       masih lebih dari 5 tahun lagi tidak ditampilkan sebagai pilihan
+       (dihitung ulang setiap load karena "5 tahun dari hari ini" bergeser
+       tiap hari, beda dengan filter lain di atas yang statis).
+       Field maturity_date di statis_efek.json formatnya "DD-MMM-YYYY"
+       (mis. "06-FEB-2027") — DIPARSE MANUAL (bukan new Date(string)
+       langsung), karena format non-ISO seperti ini "implementation-defined"
+       di spec JS dan bisa diparse beda-beda antar browser.
    Jadi data-loader.js TIDAK perlu lagi cross-reference ke
    daftar_jaminan.json untuk menentukan eligibility obligasi —
-   semua entri di statis_efek.json sudah pasti eligible.
+   semua entri di statis_efek.json sudah pasti eligible dari sisi
+   tipe/interest/currency/status, tinggal difilter maturity-nya.
    ============================================================ */
 const DataLoader = (() => {
   let cache = null;
+
+  // Parser tanggal "DD-MMM-YYYY" (mis. "06-FEB-2027") yang konsisten di semua
+  // browser — lihat catatan di atas kenapa new Date(string) langsung tidak dipakai.
+  const NAMA_BULAN = { JAN: 0, FEB: 1, MAR: 2, APR: 3, MAY: 4, JUN: 5, JUL: 6, AUG: 7, SEP: 8, OCT: 9, NOV: 10, DEC: 11 };
+  function parseTanggalDDMMMYYYY(str) {
+    if (!str) return null;
+    const m = /^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/.exec(String(str).trim());
+    if (!m) return null;
+    const bulan = NAMA_BULAN[m[2].toUpperCase()];
+    if (bulan == null) return null;
+    return new Date(parseInt(m[3], 10), bulan, parseInt(m[1], 10));
+  }
 
   async function fetchJsonFile(path) {
     const res = await fetch(path);
@@ -54,10 +76,19 @@ const DataLoader = (() => {
       .sort((a, b) => a.kode_efek.localeCompare(b.kode_efek));
   }
 
-  // ---- Daftar obligasi eligible — langsung dari statis_efek.json (sudah pre-filtered) ----
+  // ---- Daftar obligasi eligible — dari statis_efek.json (sudah pre-filtered),
+  //      ditambah filter maturity < 5 tahun dari hari ini. ----
   function getObligasiOptions(data) {
+    const now = new Date();
+    const batasMaturity = new Date(now.getFullYear() + 5, now.getMonth(), now.getDate());
+
     return Object.values(data.statisEfek)
       .filter((row) => row.status === "ACTIVE")
+      .filter((row) => {
+        const maturity = parseTanggalDDMMMYYYY(row.maturity_date);
+        if (!maturity) return false; // tanpa data maturity valid, tidak bisa dipastikan eligible
+        return maturity < batasMaturity;
+      })
       .map((row) => ({
         kode_efek: row.kode_efek,
         display: `${row.kode_efek} — ${row.nama_efek || ""}`,
