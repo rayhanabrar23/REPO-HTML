@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Pendanaan Transaksi REPO — PT Pendanaan Efek Indonesia</title>
+<title data-i18n="pageTitle">Pendanaan Transaksi REPO — PT Pendanaan Efek Indonesia</title>
 <meta name="description" content="Simulasi dan pengajuan Pendanaan Transaksi REPO untuk calon nasabah PT Pendanaan Efek Indonesia (PEI)." />
 <link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
 <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
@@ -23,14 +23,16 @@
   <div class="wrap header-inner">
     <div class="brand">
       <div class="brand-name">PT Pendanaan Efek Indonesia</div>
-      <div class="brand-sub">Portal Pendanaan Transaksi REPO</div>
+      <div class="brand-sub" data-i18n="brandSub">Portal Pendanaan Transaksi REPO</div>
     </div>
 
     <nav class="site-nav" id="siteNav" aria-label="Navigasi utama">
-      <a href="#documents">Informasi</a>
-      <a href="#simulator">Simulator</a>
-      <a href="#form">Ajukan Pendanaan</a>
+      <a href="#documents" data-i18n="navInfo">Informasi</a>
+      <a href="#simulator" data-i18n="navSimulator">Simulator</a>
+      <a href="#form" data-i18n="navApply">Ajukan Pendanaan</a>
     </nav>
+
+    <button type="button" class="lang-toggle" id="langToggle" aria-label="Ganti bahasa / Switch language">ID</button>
 
     <button type="button" class="nav-toggle" id="navToggle" aria-label="Buka menu navigasi" aria-expanded="false" aria-controls="mobileNavPanel">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
@@ -45,9 +47,9 @@
   </div>
 
   <nav class="mobile-nav-panel" id="mobileNavPanel" aria-label="Navigasi utama (mobile)" hidden>
-    <a href="#documents">Informasi</a>
-    <a href="#simulator">Simulator</a>
-    <a href="#form">Ajukan Pendanaan</a>
+    <a href="#documents" data-i18n="navInfo">Informasi</a>
+    <a href="#simulator" data-i18n="navSimulator">Simulator</a>
+    <a href="#form" data-i18n="navApply">Ajukan Pendanaan</a>
   </nav>
 </header>
 
@@ -56,17 +58,17 @@
   <!-- ================= HERO ================= -->
   <section class="hero">
     <div class="wrap hero-inner reveal">
-      <span class="eyebrow">Produk PT Pendanaan Efek Indonesia</span>
-      <h1>Dapatkan Pendanaan<br/>dari portofolio Efek Anda.</h1>
-      <p class="hero-desc">
+      <span class="eyebrow" data-i18n="heroEyebrow">Produk PT Pendanaan Efek Indonesia</span>
+      <h1 data-i18n-html="heroTitle">Dapatkan Pendanaan<br/>dari portofolio Efek Anda.</h1>
+      <p class="hero-desc" data-i18n-html="heroDesc">
         Transaksi Repurchase Agreement (<strong>Transaksi Repo</strong>) adalah kontrak jual
         atau beli Efek dengan janji beli atau jual kembali pada waktu dan harga yang telah
         ditetapkan. Jadikan saham dan/atau obligasi yang Anda miliki sebagai jaminan untuk
         memperoleh pendanaan — cepat, transparan, dan sesuai ketentuan.
       </p>
       <div class="hero-cta">
-        <a href="#simulator" class="btn btn-primary">Mulai Simulasi</a>
-        <a href="#form" class="btn btn-ghost">Ajukan Sekarang</a>
+        <a href="#simulator" class="btn btn-primary" data-i18n="heroCtaSim">Mulai Simulasi</a>
+        <a href="#form" class="btn btn-ghost" data-i18n="heroCtaApply">Ajukan Sekarang</a>
       </div>
     </div>
 
@@ -80,51 +82,51 @@
   <section class="section" id="documents">
     <div class="wrap reveal">
       <div class="section-head">
-        <span class="tag">Informasi</span>
-        <h2>Materi Edukasi Transaksi REPO</h2>
-        <p class="section-desc">Pelajari lebih lengkap seputar Transaksi Repurchase Agreement (REPO) melalui materi berikut sebelum mengajukan pendanaan.</p>
+        <span class="tag" data-i18n="tagInfo">Informasi</span>
+        <h2 data-i18n="docsTitle">Materi Edukasi Transaksi REPO</h2>
+        <p class="section-desc" data-i18n="docsDesc">Pelajari lebih lengkap seputar Transaksi Repurchase Agreement (REPO) melalui materi berikut sebelum mengajukan pendanaan.</p>
       </div>
       <div class="doc-grid" id="docGrid">
         <!-- populated by script.js from DOCUMENTS array, or shows empty state -->
       </div>
 
-      <h3 style="margin-top:2.2rem; margin-bottom:0.9rem; font-size:1.1rem; color:var(--maroon-900, #4A1018);">Alur Mekanisme Pendanaan Transaksi REPO</h3>
+      <h3 style="margin-top:2.2rem; margin-bottom:0.9rem; font-size:1.1rem; color:var(--maroon-900, #4A1018);" data-i18n="flowTitle">Alur Mekanisme Pendanaan Transaksi REPO</h3>
       <div class="flow-steps">
         <div class="flow-step">
           <div class="flow-badge">1</div>
-          <div class="flow-label">Lakukan Simulasi Perhitungan</div>
+          <div class="flow-label" data-i18n="flow1">Lakukan Simulasi Perhitungan</div>
         </div>
         <div class="flow-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </div>
         <div class="flow-step">
           <div class="flow-badge">2</div>
-          <div class="flow-label">Ajukan Pendanaan</div>
+          <div class="flow-label" data-i18n="flow2">Ajukan Pendanaan</div>
         </div>
         <div class="flow-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </div>
         <div class="flow-step">
           <div class="flow-badge">3</div>
-          <div class="flow-label">Konfirmasi Persetujuan Pendanaan</div>
+          <div class="flow-label" data-i18n="flow3">Konfirmasi Persetujuan Pendanaan</div>
         </div>
         <div class="flow-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </div>
         <div class="flow-step">
           <div class="flow-badge">4</div>
-          <div class="flow-label">Tanda Tangan Perjanjian</div>
+          <div class="flow-label" data-i18n="flow4">Tanda Tangan Perjanjian</div>
         </div>
         <div class="flow-arrow" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
         </div>
         <div class="flow-step">
           <div class="flow-badge">5</div>
-          <div class="flow-label">Terima Pencairan Pendanaan</div>
+          <div class="flow-label" data-i18n="flow5">Terima Pencairan Pendanaan</div>
         </div>
       </div>
 
-      <p class="section-desc" style="margin-top:2rem;">
+      <p class="section-desc" style="margin-top:2rem;" data-i18n="docsFooterNote">
         Informasi lebih lanjut terkait Transaksi Pendanaan REPO, silakan akses website resmi PEI.
         Ada kendala saat melakukan simulasi, atau saham/obligasi Anda belum tercantum sebagai
         pilihan jaminan? Silakan hubungi kami langsung.
@@ -138,13 +140,13 @@
                onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';" />
           <div class="logo-fallback" style="display:none; width:52px; height:52px; flex-shrink:0; align-items:center; justify-content:center; font-weight:700;">PEI</div>
           <div style="flex:1; min-width:0;">
-            <div style="font-weight:600; font-size:0.98rem;">PT Pendanaan Efek Indonesia — Website Resmi</div>
+            <div style="font-weight:600; font-size:0.98rem;" data-i18n="siteCardTitle">PT Pendanaan Efek Indonesia — Website Resmi</div>
             <div class="mono" style="font-size:0.82rem; color:var(--maroon-700, #7a1f2b); margin-top:0.15rem;">www.pei.co.id</div>
-            <div style="font-size:0.85rem; color:#555; margin-top:0.35rem;">
+            <div style="font-size:0.85rem; color:#555; margin-top:0.35rem;" data-i18n="siteCardDesc">
               Profil perusahaan, produk pendanaan, berita, dan kegiatan terkini PEI.
             </div>
           </div>
-          <span style="flex-shrink:0; font-size:0.85rem; font-weight:600; white-space:nowrap;">Kunjungi ↗</span>
+          <span style="flex-shrink:0; font-size:0.85rem; font-weight:600; white-space:nowrap;" data-i18n="visitLink">Kunjungi ↗</span>
         </a>
 
         <a class="site-link-card" href="https://www.pei.co.id/id/hubungi-kami" target="_blank" rel="noopener noreferrer"
@@ -157,13 +159,13 @@
             </svg>
           </div>
           <div style="flex:1; min-width:0;">
-            <div style="font-weight:600; font-size:0.98rem;">Hubungi Kami</div>
-            <div class="mono" style="font-size:0.82rem; color:var(--maroon-700, #7a1f2b); margin-top:0.15rem;">Kendala simulasi &amp; jaminan</div>
-            <div style="font-size:0.85rem; color:#555; margin-top:0.35rem;">
+            <div style="font-weight:600; font-size:0.98rem;" data-i18n="contactCardTitle">Hubungi Kami</div>
+            <div class="mono" style="font-size:0.82rem; color:var(--maroon-700, #7a1f2b); margin-top:0.15rem;" data-i18n="contactCardSub">Kendala simulasi &amp; jaminan</div>
+            <div style="font-size:0.85rem; color:#555; margin-top:0.35rem;" data-i18n="contactCardDesc">
               Ada kendala saat simulasi, atau efek Anda belum tercantum sebagai jaminan? Hubungi tim PEI.
             </div>
           </div>
-          <span style="flex-shrink:0; font-size:0.85rem; font-weight:600; white-space:nowrap;">Hubungi ↗</span>
+          <span style="flex-shrink:0; font-size:0.85rem; font-weight:600; white-space:nowrap;" data-i18n="contactLink">Hubungi ↗</span>
         </a>
       </div>
     </div>
@@ -173,16 +175,16 @@
   <section class="section section-alt" id="simulator">
     <div class="wrap reveal">
       <div class="section-head">
-        <span class="tag">Menu Utama</span>
-        <h2>Simulator Perhitungan REPO</h2>
-        <p class="section-desc">
+        <span class="tag" data-i18n="tagMainMenu">Menu Utama</span>
+        <h2 data-i18n="simIntroTitle">Simulator Perhitungan REPO</h2>
+        <p class="section-desc" data-i18n-html="simIntroDesc">
           Simulasikan estimasi nilai pendanaan dari saham/obligasi yang akan Anda jaminkan.
           <em>Nilai simulasi merupakan estimasi awal, nilai final tetap melalui proses evaluasi &amp; persetujuan.</em>
         </p>
       </div>
       <div style="display:flex; gap:0.9rem; flex-wrap:wrap;">
-        <a href="#simulator-estimasi" class="btn btn-primary">Hitung Estimasi Pendanaan dari Efek yang Dimiliki</a>
-        <a href="#simulator-kebutuhan" class="btn btn-outline">Hitung Estimasi Jaminan untuk Pendanaan yang Diajukan</a>
+        <a href="#simulator-estimasi" class="btn btn-primary" data-i18n="simIntroBtnFwd">Hitung Estimasi Pendanaan dari Efek yang Dimiliki</a>
+        <a href="#simulator-kebutuhan" class="btn btn-outline" data-i18n="simIntroBtnRev">Hitung Estimasi Jaminan untuk Pendanaan yang Diajukan</a>
       </div>
     </div>
   </section>
@@ -191,39 +193,39 @@
   <section class="section" id="simulator-estimasi">
     <div class="wrap reveal">
       <div class="section-head">
-        <span class="tag">Simulator 1</span>
-        <h2>Estimasi Pendanaan dari Efek yang Dimiliki</h2>
-        <p class="section-desc">Masukkan jumlah lot saham dan/atau nilai nominal obligasi yang Anda miliki untuk mengetahui estimasi nilai pendanaan yang dapat diperoleh.</p>
+        <span class="tag" data-i18n="tagSim1">Simulator 1</span>
+        <h2 data-i18n="simFwdTitle">Estimasi Pendanaan dari Efek yang Dimiliki</h2>
+        <p class="section-desc" data-i18n="simFwdDesc">Masukkan jumlah lot saham dan/atau nilai nominal obligasi yang Anda miliki untuk mengetahui estimasi nilai pendanaan yang dapat diperoleh.</p>
       </div>
 
       <div class="sim-card">
         <div class="field" style="max-width:280px; margin-bottom:1.2rem;">
-          <label for="tenorSimulasiFwd">Rencana Tenor (untuk hitung bunga)</label>
+          <label for="tenorSimulasiFwd" data-i18n="lblTenor">Rencana Tenor (untuk hitung bunga)</label>
           <select id="tenorSimulasiFwd">
-            <option value="1">1 Bulan</option>
-            <option value="2">2 Bulan</option>
-            <option value="3">3 Bulan</option>
-            <option value="4">4 Bulan</option>
-            <option value="5">5 Bulan</option>
-            <option value="6">6 Bulan</option>
+            <option value="1" data-i18n="tenor1">1 Bulan</option>
+            <option value="2" data-i18n="tenor2">2 Bulan</option>
+            <option value="3" data-i18n="tenor3">3 Bulan</option>
+            <option value="4" data-i18n="tenor4">4 Bulan</option>
+            <option value="5" data-i18n="tenor5">5 Bulan</option>
+            <option value="6" data-i18n="tenor6">6 Bulan</option>
           </select>
         </div>
 
-        <p class="section-desc" style="margin-bottom:1rem;">
+        <p class="section-desc" style="margin-bottom:1rem;" data-i18n="multiEfekNote">
           Bisa jaminkan lebih dari satu efek sekaligus — klik "+ Tambah Efek" untuk menambah baris.
         </p>
 
         <div id="efekListFwd"><!-- baris efek diisi otomatis oleh script.js --></div>
-        <button type="button" class="btn btn-outline" id="btnTambahEfekFwd" style="margin-top:0.4rem;">+ Tambah Efek</button>
+        <button type="button" class="btn btn-outline" id="btnTambahEfekFwd" style="margin-top:0.4rem;" data-i18n="btnTambahEfek">+ Tambah Efek</button>
 
-        <button class="btn btn-primary btn-block" id="btnHitungFwd" style="margin-top:1.2rem;">Hitung Estimasi Pendanaan</button>
+        <button class="btn btn-primary btn-block" id="btnHitungFwd" style="margin-top:1.2rem;" data-i18n="btnHitungFwd">Hitung Estimasi Pendanaan</button>
 
         <div class="result-box" id="resultBoxFwd" hidden>
-          <div class="result-label" id="resultLabelFwd">Estimasi Nilai Pendanaan</div>
+          <div class="result-label" id="resultLabelFwd" data-i18n="resultLabelFwdDefault">Estimasi Nilai Pendanaan</div>
           <div class="result-value mono" id="resultValueFwd">Rp 0</div>
           <div class="result-meta mono" id="resultMetaFwd"></div>
         </div>
-        <button type="button" class="btn btn-outline" id="btnSimpanSimulasiFwd" hidden style="margin-top:0.8rem;">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
+        <button type="button" class="btn btn-outline" id="btnSimpanSimulasiFwd" hidden style="margin-top:0.8rem;" data-i18n="btnSimpanSim">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
         <p class="form-status ok" id="simSavedMsgFwd" hidden style="margin-top:0.6rem;"></p>
       </div>
     </div>
@@ -233,44 +235,44 @@
   <section class="section section-alt" id="simulator-kebutuhan">
     <div class="wrap reveal">
       <div class="section-head">
-        <span class="tag">Simulator 2</span>
-        <h2>Estimasi Jaminan untuk Pendanaan yang Diajukan</h2>
-        <p class="section-desc">Masukkan target dana yang dibutuhkan untuk mengetahui jumlah lot saham dan/atau nilai nominal obligasi yang perlu Anda jaminkan.</p>
+        <span class="tag" data-i18n="tagSim2">Simulator 2</span>
+        <h2 data-i18n="simRevTitle">Estimasi Jaminan untuk Pendanaan yang Diajukan</h2>
+        <p class="section-desc" data-i18n="simRevDesc">Masukkan target dana yang dibutuhkan untuk mengetahui jumlah lot saham dan/atau nilai nominal obligasi yang perlu Anda jaminkan.</p>
       </div>
 
       <div class="sim-card">
         <div class="field" style="max-width:280px; margin-bottom:1.2rem;">
-          <label for="tenorSimulasiRev">Rencana Tenor (untuk hitung bunga)</label>
+          <label for="tenorSimulasiRev" data-i18n="lblTenor">Rencana Tenor (untuk hitung bunga)</label>
           <select id="tenorSimulasiRev">
-            <option value="1">1 Bulan</option>
-            <option value="2">2 Bulan</option>
-            <option value="3">3 Bulan</option>
-            <option value="4">4 Bulan</option>
-            <option value="5">5 Bulan</option>
-            <option value="6">6 Bulan</option>
+            <option value="1" data-i18n="tenor1">1 Bulan</option>
+            <option value="2" data-i18n="tenor2">2 Bulan</option>
+            <option value="3" data-i18n="tenor3">3 Bulan</option>
+            <option value="4" data-i18n="tenor4">4 Bulan</option>
+            <option value="5" data-i18n="tenor5">5 Bulan</option>
+            <option value="6" data-i18n="tenor6">6 Bulan</option>
           </select>
         </div>
 
-        <p class="section-desc" style="margin-bottom:1rem;">
+        <p class="section-desc" style="margin-bottom:1rem;" data-i18n="multiEfekNote">
           Bisa jaminkan lebih dari satu efek sekaligus — klik "+ Tambah Efek" untuk menambah baris.
         </p>
 
         <div id="efekListRev"><!-- baris efek diisi otomatis oleh script.js --></div>
-        <button type="button" class="btn btn-outline" id="btnTambahEfekRev" style="margin-top:0.4rem;">+ Tambah Efek</button>
+        <button type="button" class="btn btn-outline" id="btnTambahEfekRev" style="margin-top:0.4rem;" data-i18n="btnTambahEfek">+ Tambah Efek</button>
 
         <div class="result-box" id="totalTargetBoxRev" hidden style="margin-top:1.2rem;">
-          <div class="result-label">Total Kebutuhan Dana (dijumlah dari semua efek di atas)</div>
+          <div class="result-label" data-i18n="totalTargetLabel">Total Kebutuhan Dana (dijumlah dari semua efek di atas)</div>
           <div class="result-value mono" id="totalTargetValueRev">Rp 0</div>
         </div>
 
-        <button class="btn btn-primary btn-block" id="btnHitungRev" style="margin-top:1.2rem;">Hitung Kebutuhan Jaminan</button>
+        <button class="btn btn-primary btn-block" id="btnHitungRev" style="margin-top:1.2rem;" data-i18n="btnHitungRev">Hitung Kebutuhan Jaminan</button>
 
         <div class="result-box" id="resultBoxRev" hidden>
-          <div class="result-label" id="resultLabelRev">Kebutuhan Jaminan</div>
+          <div class="result-label" id="resultLabelRev" data-i18n="resultLabelRevDefault">Kebutuhan Jaminan</div>
           <div class="result-value mono" id="resultValueRev">Rp 0</div>
           <div class="result-meta mono" id="resultMetaRev"></div>
         </div>
-        <button type="button" class="btn btn-outline" id="btnSimpanSimulasiRev" hidden style="margin-top:0.8rem;">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
+        <button type="button" class="btn btn-outline" id="btnSimpanSimulasiRev" hidden style="margin-top:0.8rem;" data-i18n="btnSimpanSim">💾 Simpan Simulasi Ini untuk Form Pengajuan</button>
         <p class="form-status ok" id="simSavedMsgRev" hidden style="margin-top:0.6rem;"></p>
       </div>
     </div>
@@ -280,9 +282,9 @@
   <section class="section" id="form">
     <div class="wrap reveal">
       <div class="section-head">
-        <span class="tag">Langkah Selanjutnya</span>
-        <h2>Form Pengajuan Calon Nasabah</h2>
-        <p class="section-desc">Sudah mendapatkan estimasi dari simulator? Lengkapi form berikut untuk melanjutkan proses pengajuan pendanaan.</p>
+        <span class="tag" data-i18n="tagNextStep">Langkah Selanjutnya</span>
+        <h2 data-i18n="formTitle">Form Pengajuan Calon Nasabah</h2>
+        <p class="section-desc" data-i18n="formDesc">Sudah mendapatkan estimasi dari simulator? Lengkapi form berikut untuk melanjutkan proses pengajuan pendanaan.</p>
       </div>
 
       <form class="sub-card" id="pengajuanForm">
@@ -294,33 +296,33 @@
         <!-- ===== STEP 1: identitas dasar ===== -->
         <div class="form-step" id="formStep1">
           <div class="field">
-            <label for="fNama">Nama Nasabah *</label>
+            <label for="fNama" data-i18n="lblNama">Nama Nasabah *</label>
             <input type="text" id="fNama" name="Nama Nasabah" required />
           </div>
           <div class="field">
-            <label for="fEmail">Email Aktif *</label>
+            <label for="fEmail" data-i18n="lblEmail">Email Aktif *</label>
             <input type="email" id="fEmail" name="Email" placeholder="nama@email.com" required />
           </div>
           <div class="field">
-            <label for="fWhatsapp">No. WhatsApp *</label>
-            <input type="tel" id="fWhatsapp" name="No. WhatsApp" inputmode="numeric" pattern="[0-9+ ]{8,15}" placeholder="Contoh: 081234567890" required />
+            <label for="fWhatsapp" data-i18n="lblWhatsapp">No. WhatsApp *</label>
+            <input type="tel" id="fWhatsapp" name="No. WhatsApp" inputmode="numeric" pattern="[0-9+ ]{8,15}" placeholder="Contoh: 081234567890" data-i18n-placeholder="phWhatsapp" required />
           </div>
 
-          <button type="button" class="btn btn-primary btn-block" id="btnNextStep" style="margin-top:0.6rem;">Lanjutkan</button>
+          <button type="button" class="btn btn-primary btn-block" id="btnNextStep" style="margin-top:0.6rem;" data-i18n="btnLanjutkan">Lanjutkan</button>
         </div>
 
         <!-- ===== STEP 2: detail pengajuan + simulasi + captcha ===== -->
         <div class="form-step" id="formStep2" hidden>
           <div class="result-box" id="simulasiTersimpanBox" hidden style="margin-bottom:1.4rem;">
-            <div class="result-label">📌 Ada Data Simulasi Tersimpan</div>
+            <div class="result-label" data-i18n="simTersimpanLabel">📌 Ada Data Simulasi Tersimpan</div>
             <div class="result-meta mono" id="simulasiTersimpanMeta"></div>
-            <button type="button" class="btn btn-primary" id="btnMuatSimulasi" style="margin-top:0.8rem;">Gunakan Data Ini di Form</button>
+            <button type="button" class="btn btn-primary" id="btnMuatSimulasi" style="margin-top:0.8rem;" data-i18n="btnGunakanData">Gunakan Data Ini di Form</button>
           </div>
 
           <div class="field">
-            <label for="fBroker">Broker yang Dipakai *</label>
+            <label for="fBroker" data-i18n="lblBroker">Broker yang Dipakai *</label>
             <select id="fBroker" name="Broker" required>
-              <option value="">Pilih broker...</option>
+              <option value="" data-i18n="optPilihBroker">Pilih broker...</option>
               <option value="MNC Sekuritas">MNC Sekuritas</option>
               <option value="Lotus Andalan Sekuritas">Lotus Andalan Sekuritas</option>
               <option value="Yuanta Sekuritas Indonesia">Yuanta Sekuritas Indonesia</option>
@@ -342,35 +344,35 @@
               <option value="Reliance Sekuritas Indonesia Tbk.">Reliance Sekuritas Indonesia Tbk.</option>
               <option value="Trust Sekuritas">Trust Sekuritas</option>
               <option value="Sinarmas Sekuritas">Sinarmas Sekuritas</option>
-              <option value="Lainnya">Lainnya (broker tidak ada di daftar)</option>
+              <option value="Lainnya" data-i18n="optBrokerLainnya">Lainnya (broker tidak ada di daftar)</option>
             </select>
           </div>
           <div class="field" id="fieldBrokerLainnya" hidden>
-            <label for="fBrokerLainnya">Nama Broker Lainnya *</label>
-            <input type="text" id="fBrokerLainnya" name="Nama Broker Lainnya" placeholder="Tulis nama broker yang Anda pakai" />
+            <label for="fBrokerLainnya" data-i18n="lblBrokerLainnya">Nama Broker Lainnya *</label>
+            <input type="text" id="fBrokerLainnya" name="Nama Broker Lainnya" placeholder="Tulis nama broker yang Anda pakai" data-i18n-placeholder="phBrokerLainnya" />
           </div>
           <div class="field">
-            <label for="fTenor">Rencana Tenor *</label>
+            <label for="fTenor" data-i18n="lblTenorForm">Rencana Tenor *</label>
             <select id="fTenor" name="Rencana Tenor" required>
-              <option value="">Pilih tenor...</option>
-              <option value="1 Bulan">1 Bulan</option>
-              <option value="2 Bulan">2 Bulan</option>
-              <option value="3 Bulan">3 Bulan</option>
-              <option value="4 Bulan">4 Bulan</option>
-              <option value="5 Bulan">5 Bulan</option>
-              <option value="6 Bulan">6 Bulan</option>
+              <option value="" data-i18n="optPilihTenor">Pilih tenor...</option>
+              <option value="1 Bulan" data-i18n="tenor1">1 Bulan</option>
+              <option value="2 Bulan" data-i18n="tenor2">2 Bulan</option>
+              <option value="3 Bulan" data-i18n="tenor3">3 Bulan</option>
+              <option value="4 Bulan" data-i18n="tenor4">4 Bulan</option>
+              <option value="5 Bulan" data-i18n="tenor5">5 Bulan</option>
+              <option value="6 Bulan" data-i18n="tenor6">6 Bulan</option>
             </select>
-            <p style="font-size:0.85rem; color:#666; margin-top:0.4rem;">
+            <p style="font-size:0.85rem; color:#666; margin-top:0.4rem;" data-i18n="tenorRolloverNote">
               Catatan: tenor dapat diperpanjang (rollover) hingga maksimal total 1 (satu) tahun.
             </p>
           </div>
           <div class="field">
-            <label for="fRencana">Rencana Pengajuan *</label>
-            <textarea id="fRencana" name="Rencana Pengajuan" rows="3" placeholder="Jelaskan singkat kebutuhan pendanaan Anda" required></textarea>
+            <label for="fRencana" data-i18n="lblRencana">Rencana Pengajuan *</label>
+            <textarea id="fRencana" name="Rencana Pengajuan" rows="3" placeholder="Jelaskan singkat kebutuhan pendanaan Anda" data-i18n-placeholder="phRencana" required></textarea>
           </div>
           <div class="field">
-            <label for="fSaham">Saham/Obligasi yang Diajukan *</label>
-            <textarea id="fSaham" name="Saham/Obligasi Diajukan" rows="3" placeholder="Contoh: BBCA 10.000 lembar, Obligasi ABC Seri A Rp500.000.000" required></textarea>
+            <label for="fSaham" data-i18n="lblSaham">Saham/Obligasi yang Diajukan *</label>
+            <textarea id="fSaham" name="Saham/Obligasi Diajukan" rows="3" placeholder="Contoh: BBCA 10.000 lembar, Obligasi ABC Seri A Rp500.000.000" data-i18n-placeholder="phSaham" required></textarea>
           </div>
 
           <div class="captcha-wrap">
@@ -378,8 +380,8 @@
           </div>
 
           <div class="form-step-actions">
-            <button type="button" class="btn btn-outline" id="btnBackStep">Kembali</button>
-            <button type="submit" class="btn btn-primary" id="btnSubmit">Kirim Pengajuan</button>
+            <button type="button" class="btn btn-outline" id="btnBackStep" data-i18n="btnKembali">Kembali</button>
+            <button type="submit" class="btn btn-primary" id="btnSubmit" data-i18n="btnKirim">Kirim Pengajuan</button>
           </div>
         </div>
 
@@ -412,7 +414,7 @@
   <div class="modal-box" role="alertdialog" aria-modal="true">
     <div class="modal-icon" aria-hidden="true">⚠</div>
     <p class="modal-message" id="warnModalMessage"></p>
-    <button type="button" class="btn btn-primary btn-block" id="warnModalClose">Mengerti</button>
+    <button type="button" class="btn btn-primary btn-block" id="warnModalClose" data-i18n="btnMengerti">Mengerti</button>
   </div>
 </div>
 
