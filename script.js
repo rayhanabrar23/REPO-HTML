@@ -82,6 +82,36 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 /* ============================================================
+   NAV MOBILE — toggle hamburger buka/tutup panel navigasi,
+   otomatis tertutup begitu salah satu link di dalamnya diklik.
+   ============================================================ */
+(function navToggle() {
+  const btn = document.getElementById('navToggle');
+  const panel = document.getElementById('mobileNavPanel');
+  if (!btn || !panel) return;
+
+  function closePanel() {
+    panel.hidden = true;
+    panel.classList.remove('open');
+    btn.setAttribute('aria-expanded', 'false');
+  }
+  function openPanel() {
+    panel.hidden = false;
+    panel.classList.add('open');
+    btn.setAttribute('aria-expanded', 'true');
+  }
+
+  btn.addEventListener('click', () => {
+    const isOpen = btn.getAttribute('aria-expanded') === 'true';
+    isOpen ? closePanel() : openPanel();
+  });
+
+  panel.querySelectorAll('a').forEach((a) => {
+    a.addEventListener('click', closePanel);
+  });
+})();
+
+/* ============================================================
    SCROLL REVEAL
    ============================================================ */
 const revealEls = document.querySelectorAll('.reveal');
