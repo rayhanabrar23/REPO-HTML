@@ -121,6 +121,28 @@ a { text-decoration: none; color: inherit; }
 }
 .site-nav a:hover::after { transform: scaleX(1); }
 
+/* ---- Tombol ganti bahasa (ID/EN) ---- */
+.lang-toggle {
+  flex-shrink: 0;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.78rem;
+  letter-spacing: 0.5px;
+  color: var(--maroon-700);
+  background: #fff;
+  border: 1.5px solid var(--maroon-700);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.85rem;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.2s var(--ease);
+}
+.lang-toggle:hover {
+  background: var(--maroon-700);
+  color: #fff;
+  transform: translateY(-1px);
+}
+.lang-toggle:active { transform: translateY(0); }
+
 .nav-toggle {
   display: none;
   background: none;
@@ -352,9 +374,7 @@ a { text-decoration: none; color: inherit; }
 .warn-msg { color: var(--maroon-700); font-size: 0.88rem; margin-top: 1rem; }
 
 /* ============================================================
-   MODAL PERINGATAN — pop-up di tengah layar, ganti teks kecil
-   warn-msg yang lama (kurang kelihatan). Dipakai bersama oleh
-   kedua instance simulator lewat satu elemen di akhir <body>.
+   MODAL PERINGATAN
    ============================================================ */
 .modal-overlay {
   position: fixed;
@@ -460,10 +480,6 @@ a { text-decoration: none; color: inherit; }
 }
 .btn-ghost:hover { background: rgba(255,255,255,0.18); transform: translateY(-2px); }
 
-/* Tombol outline maroon (dipakai untuk aksi sekunder: "+ Tambah Efek",
-   "Simpan Simulasi", pilihan simulator kedua, dst.) — sama seperti
-   .btn-primary tapi latar putih. Diberi hover lift+shadow yang senada
-   supaya terasa konsisten dengan tombol merah. */
 .btn-outline {
   background: #fff;
   color: var(--maroon-700, #b03236);
@@ -488,7 +504,7 @@ a { text-decoration: none; color: inherit; }
 .form-step-actions .btn-primary { flex: 1; }
 
 /* ============================================================
-   ALUR MEKANISME — flow steps dengan panah penghubung & animasi
+   ALUR MEKANISME
    ============================================================ */
 .flow-steps {
   display: flex;
@@ -558,7 +574,6 @@ a { text-decoration: none; color: inherit; }
   transform: translateX(2px);
 }
 
-/* Muncul berurutan (stagger) begitu section reveal-nya kelihatan */
 @media (prefers-reduced-motion: no-preference) {
   .flow-step {
     opacity: 0;
@@ -576,8 +591,6 @@ a { text-decoration: none; color: inherit; }
   .reveal.is-visible .flow-step:nth-of-type(5) { transition-delay: 0.45s; }
 }
 
-/* Di layar sempit kartu bertumpuk vertikal — panah horizontal disembunyikan,
-   badge nomor sudah cukup menandakan urutannya. */
 @media (max-width: 720px) {
   .flow-arrow { display: none; }
   .flow-step { flex: 1 1 100%; }
@@ -604,6 +617,7 @@ a { text-decoration: none; color: inherit; }
   .hero-inner { padding-top: 3rem; padding-bottom: 2.5rem; }
   .section { padding: 3rem 0; }
   .sim-card, .sub-card { padding: 1.4rem 1.3rem; }
+  .lang-toggle { font-size: 0.72rem; padding: 0.3rem 0.7rem; }
 }
 
 /* ============================================================
