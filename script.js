@@ -409,8 +409,9 @@ function applyStaticI18N() {
     el.setAttribute('title', t(el.getAttribute('data-i18n-title')));
   });
 
-  const langBtn = document.getElementById('langToggle');
-  if (langBtn) langBtn.textContent = currentLang === 'id' ? 'EN' : 'ID';
+  document.querySelectorAll('.lang-option').forEach((btn) => {
+    btn.classList.toggle('active', btn.getAttribute('data-lang') === currentLang);
+  });
 }
 
 function setLang(lang) {
@@ -424,9 +425,11 @@ function setLang(lang) {
 }
 
 (function langToggleSetup() {
-  const btn = document.getElementById('langToggle');
-  if (!btn) return;
-  btn.addEventListener('click', () => setLang(currentLang === 'id' ? 'en' : 'id'));
+  const wrap = document.getElementById('langToggle');
+  if (!wrap) return;
+  wrap.querySelectorAll('.lang-option').forEach((btn) => {
+    btn.addEventListener('click', () => setLang(btn.getAttribute('data-lang')));
+  });
   applyStaticI18N(); // terapkan bahasa tersimpan begitu halaman dimuat
 })();
 
