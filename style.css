@@ -121,27 +121,36 @@ a { text-decoration: none; color: inherit; }
 }
 .site-nav a:hover::after { transform: scaleX(1); }
 
-/* ---- Tombol ganti bahasa (ID/EN) ---- */
+/* ---- Toggle ganti bahasa (ID/EN) — segmented control, kedua opsi
+   selalu terlihat, opsi yang aktif di-highlight solid. ---- */
 .lang-toggle {
   flex-shrink: 0;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  font-size: 0.78rem;
-  letter-spacing: 0.5px;
-  color: var(--maroon-700);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
   background: #fff;
   border: 1.5px solid var(--maroon-700);
   border-radius: var(--radius-sm);
-  padding: 0.35rem 0.85rem;
-  cursor: pointer;
-  transition: background 0.2s var(--ease), color 0.2s var(--ease), transform 0.2s var(--ease);
+  padding: 2px;
 }
-.lang-toggle:hover {
+.lang-option {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 0.76rem;
+  letter-spacing: 0.5px;
+  color: var(--maroon-700);
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.7rem;
+  cursor: pointer;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.lang-option:hover:not(.active) { background: var(--maroon-100, #F3E4E6); }
+.lang-option.active {
   background: var(--maroon-700);
   color: #fff;
-  transform: translateY(-1px);
 }
-.lang-toggle:active { transform: translateY(0); }
 
 .nav-toggle {
   display: none;
@@ -617,7 +626,7 @@ a { text-decoration: none; color: inherit; }
   .hero-inner { padding-top: 3rem; padding-bottom: 2.5rem; }
   .section { padding: 3rem 0; }
   .sim-card, .sub-card { padding: 1.4rem 1.3rem; }
-  .lang-toggle { font-size: 0.72rem; padding: 0.3rem 0.7rem; }
+  .lang-option { font-size: 0.7rem; padding: 0.28rem 0.55rem; }
 }
 
 /* ============================================================
