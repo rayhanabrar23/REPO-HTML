@@ -24,6 +24,13 @@
 
    Catatan: batas maksimum per counterpart (15% x Equity PEI) & cek outstanding
    REPO existing SENGAJA di-skip di versi ini (keputusan user, sama seperti versi Python).
+
+   CATATAN I18N: semua pesan error di file ini dibangun lewat fungsi global t()
+   (didefinisikan di script.js) supaya ikut bahasa yang sedang aktif (ID/EN).
+   t() dipanggil hanya saat fungsi-fungsi di bawah ini dieksekusi (dipicu oleh
+   interaksi user di simulator) — pada saat itu script.js sudah pasti selesai
+   dimuat, walaupun urutan <script> di index.html menaruh calc-engine.js
+   SEBELUM script.js.
    ============================================================ */
 
 const CalcEngine = (() => {
@@ -131,7 +138,7 @@ const CalcEngine = (() => {
     // (Catatan: matrix RASIO_SAHAM_MATRIX.NON_MARJIN tetap ada di atas untuk referensi
     // historis, tapi sengaja tidak pernah dipakai karena kebijakan ini.)
     if (group === "NON_MARJIN") {
-      return { error: `Saham ${kodeSaham} tidak eligible untuk dijadikan jaminan Transaksi REPO karena tergolong saham non-marjin. Silakan pilih saham lain.` };
+      return { error: t('errSahamNonMarjin', { kode: kodeSaham }) };
     }
 
     // Batas harga minimum saham — pakai closing price terbaru murni (bukan rata-rata
@@ -139,12 +146,18 @@ const CalcEngine = (() => {
     // ditampilkan). Ini juga lebih intuitif: "harga saham sekarang" ya closing price
     // terakhir, bukan buffer konservatif yang dipakai khusus untuk hitung Nilai Jaminan.
     if (marketMetrics.latest_close < MIN_HARGA_SAHAM) {
-      return { error: `Harga saham ${kodeSaham} saat ini Rp${Math.round(marketMetrics.latest_close).toLocaleString('id-ID')}, berada di bawah batas minimum Rp${MIN_HARGA_SAHAM.toLocaleString('id-ID')} yang dipersyaratkan sebagai jaminan Transaksi REPO. Silakan pilih saham lain yang memenuhi ketentuan tersebut.` };
+      return {
+        error: t('errHargaSahamMin', {
+          kode: kodeSaham,
+          harga: Math.round(marketMetrics.latest_close).toLocaleString('id-ID'),
+          min: MIN_HARGA_SAHAM.toLocaleString('id-ID'),
+        }),
+      };
     }
 
     const haircutPct = haircutRow.haircut_kpei_pct;
     if (haircutPct == null) {
-      return { error: `Haircut KPEI untuk ${kodeSaham} tidak ditemukan` };
+      return { error: t('errHaircutTidakDitemukan', { kode: kodeSaham }) };
     }
     const kategoriHaircut = tentukanKategoriHaircut(haircutPct);
     const tier = pilihTier(group, marketMetrics.var_20d_pct, marketMetrics.days_to_sell_10bio, RASIO_SAHAM_THRESHOLDS);
@@ -152,10 +165,6 @@ const CalcEngine = (() => {
     return { group, haircutPct, kategoriHaircut, tier, recommendedRatio };
   }
 
-  // Cap nilai jaminan per saham (5% Listed Shares Value / 20% Free Float Value /
-  // batas maks pendanaan Rp20 miliar), dalam Rupiah. Independen dari jumlah lot/dana
-  // yang diminta. Cap ketiga (maks pendanaan) dikonversi dulu ke "ruang nilai jaminan"
-  // (dikali recommendedRatio) supaya bisa dibandingkan apples-to-apples dengan 2 cap lainnya.
   // Cap nilai jaminan per saham (5% Listed Shares Value / 20% Free Float Value /
   // batas maks pendanaan Rp20 miliar), dalam Rupiah. Independen dari jumlah lot/dana
   // yang diminta. Cap ketiga (maks pendanaan) dikonversi dulu ke "ruang nilai jaminan"
@@ -247,7 +256,7 @@ const CalcEngine = (() => {
     listedFfRow,
   }) {
     if (!targetPendanaan || targetPendanaan <= 0) {
-      return { error: "Kebutuhan pendanaan harus lebih dari 0" };
+      return { error: t('errKebutuhanPendanaanMin') };
     }
 
     const rasioInfo = hitungRasioSaham({ kodeSaham, marketMetrics, instrumentRow, haircutRow });
@@ -323,12 +332,18 @@ const CalcEngine = (() => {
   function cekMaturityObligasi(kodeObligasi, bondRow) {
     const maturity = parseTanggalDDMMMYYYY(bondRow.maturity_date);
     if (!maturity) {
-      return { error: `Data jatuh tempo untuk ${kodeObligasi} tidak ditemukan/tidak valid` };
+      return { error: t('errMaturityTidakValid', { kode: kodeObligasi }) };
     }
     const now = new Date();
     const batasMaturity = new Date(now.getFullYear() + MAX_MATURITY_TAHUN, now.getMonth(), now.getDate());
     if (maturity >= batasMaturity) {
-      return { error: `Obligasi ${kodeObligasi} memiliki sisa tenor hingga jatuh tempo (${bondRow.maturity_date}) yang mencapai ${MAX_MATURITY_TAHUN} tahun atau lebih, sehingga belum eligible untuk dijadikan jaminan Transaksi REPO. Silakan pilih obligasi lain.` };
+      return {
+        error: t('errObligasiMaturityTooLong', {
+          kode: kodeObligasi,
+          tanggal: bondRow.maturity_date,
+          tahun: MAX_MATURITY_TAHUN,
+        }),
+      };
     }
     return {};
   }
@@ -339,7 +354,7 @@ const CalcEngine = (() => {
     bondRow, // { tipe_instrumen, closing_price_pct, nama_efek, maturity_date, kupon_pct }
   }) {
     if (!nilaiNominal || nilaiNominal <= 0) {
-      return { error: "Nilai nominal obligasi harus lebih dari 0" };
+      return { error: t('errNilaiNominalMin') };
     }
 
     const maturityCheck = cekMaturityObligasi(kodeObligasi, bondRow);
@@ -347,7 +362,7 @@ const CalcEngine = (() => {
 
     const closingPct = bondRow.closing_price_pct;
     if (closingPct == null) {
-      return { error: `Closing price untuk ${kodeObligasi} tidak ditemukan` };
+      return { error: t('errClosingPriceTidakDitemukan', { kode: kodeObligasi }) };
     }
 
     const { jenisObligasi, rasio, tipe } = tentukanRasioObligasi(bondRow);
@@ -380,7 +395,7 @@ const CalcEngine = (() => {
     bondRow,
   }) {
     if (!targetPendanaan || targetPendanaan <= 0) {
-      return { error: "Kebutuhan pendanaan harus lebih dari 0" };
+      return { error: t('errKebutuhanPendanaanMin') };
     }
 
     const maturityCheck = cekMaturityObligasi(kodeObligasi, bondRow);
@@ -388,7 +403,7 @@ const CalcEngine = (() => {
 
     const closingPct = bondRow.closing_price_pct;
     if (closingPct == null) {
-      return { error: `Closing price untuk ${kodeObligasi} tidak ditemukan` };
+      return { error: t('errClosingPriceTidakDitemukan', { kode: kodeObligasi }) };
     }
 
     const { jenisObligasi, rasio, tipe } = tentukanRasioObligasi(bondRow);
@@ -446,10 +461,10 @@ const CalcEngine = (() => {
 
   function hitungKewajibanPembayaran({ pokokPinjaman, tenorBulan, rateAnnual }) {
     if (rateAnnual == null) {
-      return { error: "Rate bunga untuk kategori efek ini belum ditentukan, mohon hubungi PEI langsung." };
+      return { error: t('errRateBelumDitentukan') };
     }
     if (!pokokPinjaman || pokokPinjaman <= 0 || !tenorBulan || tenorBulan <= 0) {
-      return { error: "Pokok pinjaman dan tenor harus lebih dari 0." };
+      return { error: t('errPokokTenorMin') };
     }
     const bungaPerBulan = (pokokPinjaman * rateAnnual) / 12;
     const totalBunga = bungaPerBulan * tenorBulan;
