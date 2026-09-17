@@ -31,6 +31,13 @@
    punya server sendiri untuk menyiasati ini kalau diblokir.
    Sudah disiapkan fallback CORS proxy + pesan error yang jelas kalau gagal,
    supaya simulator tidak "diam-diam salah", tapi tetap perlu dipantau.
+   ============================================================
+
+   CATATAN I18N: pesan error di file ini dibangun lewat fungsi global t()
+   (didefinisikan di script.js) supaya ikut bahasa yang sedang aktif (ID/EN).
+   Sama seperti di calc-engine.js — aman dipakai di sini meskipun file ini
+   dimuat sebelum script.js, karena t() baru dipanggil saat user memicu
+   fetch harga (setelah semua script selesai dimuat).
    ============================================================ */
 
 const MarketData = (() => {
@@ -98,7 +105,7 @@ const MarketData = (() => {
 
   function computeMetrics(kodeSaham, chartResult) {
     const result = chartResult?.chart?.result?.[0];
-    if (!result) return { error: `Data harga untuk ${kodeSaham} tidak ditemukan di Yahoo Finance` };
+    if (!result) return { error: t('errDataHargaTidakDitemukan', { kode: kodeSaham }) };
 
     const closesRaw = result.indicators?.quote?.[0]?.close || [];
     const volumesRaw = result.indicators?.quote?.[0]?.volume || [];
@@ -124,7 +131,7 @@ const MarketData = (() => {
     }
 
     if (pairs.length < 5) {
-      return { error: `Data harga ${kodeSaham} terlalu sedikit (${pairs.length} hari) untuk dihitung` };
+      return { error: t('errDataHargaTerlaluSedikit', { kode: kodeSaham, n: pairs.length }) };
     }
 
     const closes = pairs.map((p) => p.close);
@@ -203,9 +210,7 @@ const MarketData = (() => {
 
     if (!raw) {
       return {
-        error:
-          `Gagal mengambil data harga ${ticker}. Pastikan WORKER_BASE_URL di market-data.js ` +
-          `sudah diisi URL Cloudflare Worker yang aktif. Detail: ${lastErr?.message || "unknown"}`,
+        error: t('errGagalAmbilHarga', { ticker, detail: lastErr?.message || 'unknown' }),
       };
     }
 
