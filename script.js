@@ -27,6 +27,13 @@ const TICKER_DUMMY_DIR = { // fallback kalau live fetch gagal
    Tambahkan tombol "ID/EN" di header (#langToggle) untuk mengganti
    bahasa. Pilihan bahasa disimpan di localStorage supaya tetap
    dipakai saat pengunjung kembali.
+
+   CATATAN: key-key "err*" di bawah dipakai juga oleh js/calc-engine.js
+   dan js/market-data.js (dipanggil lewat fungsi global t() di file ini).
+   Kedua file itu dimuat SEBELUM script.js di index.html, tapi ini aman
+   karena t() baru benar-benar dipanggil saat user berinteraksi dengan
+   simulator (setelah semua script selesai dimuat), bukan saat file
+   diparsing.
    ============================================================ */
 const I18N = {
   id: {
@@ -197,6 +204,21 @@ const I18N = {
     statusSuccess: "Pengajuan berhasil dikirim! Tim kami akan segera menghubungi Anda.",
     statusPartialFail: "Pengajuan tercatat, namun notifikasi email gagal terkirim. Coba lagi nanti.",
     statusConnError: "Terjadi kendala koneksi. Mohon periksa internet Anda dan coba lagi.",
+
+    // ---- Pesan error dari js/calc-engine.js & js/market-data.js ----
+    errSahamNonMarjin: "Saham {kode} tidak eligible untuk dijadikan jaminan Transaksi REPO karena tergolong saham non-marjin. Silakan pilih saham lain.",
+    errHargaSahamMin: "Harga saham {kode} saat ini Rp{harga}, berada di bawah batas minimum Rp{min} yang dipersyaratkan sebagai jaminan Transaksi REPO. Silakan pilih saham lain yang memenuhi ketentuan tersebut.",
+    errHaircutTidakDitemukan: "Haircut KPEI untuk {kode} tidak ditemukan",
+    errKebutuhanPendanaanMin: "Kebutuhan pendanaan harus lebih dari 0",
+    errMaturityTidakValid: "Data jatuh tempo untuk {kode} tidak ditemukan/tidak valid",
+    errObligasiMaturityTooLong: "Obligasi {kode} memiliki sisa tenor hingga jatuh tempo ({tanggal}) yang mencapai {tahun} tahun atau lebih, sehingga belum eligible untuk dijadikan jaminan Transaksi REPO. Silakan pilih obligasi lain.",
+    errNilaiNominalMin: "Nilai nominal obligasi harus lebih dari 0",
+    errClosingPriceTidakDitemukan: "Closing price untuk {kode} tidak ditemukan",
+    errRateBelumDitentukan: "Rate bunga untuk kategori efek ini belum ditentukan, mohon hubungi PEI langsung.",
+    errPokokTenorMin: "Pokok pinjaman dan tenor harus lebih dari 0.",
+    errDataHargaTidakDitemukan: "Data harga untuk {kode} tidak ditemukan di Yahoo Finance",
+    errDataHargaTerlaluSedikit: "Data harga {kode} terlalu sedikit ({n} hari) untuk dihitung",
+    errGagalAmbilHarga: "Gagal mengambil data harga {ticker}. Pastikan WORKER_BASE_URL di market-data.js sudah diisi URL Cloudflare Worker yang aktif. Detail: {detail}",
   },
 
   en: {
@@ -367,6 +389,21 @@ const I18N = {
     statusSuccess: "Application sent successfully! Our team will contact you shortly.",
     statusPartialFail: "Application recorded, but the email notification failed to send. Please try again later.",
     statusConnError: "There was a connection problem. Please check your internet and try again.",
+
+    // ---- Error messages from js/calc-engine.js & js/market-data.js ----
+    errSahamNonMarjin: "Stock {kode} is not eligible as collateral for a REPO Transaction because it is classified as a non-margin stock. Please select another stock.",
+    errHargaSahamMin: "The current price of {kode} is Rp{harga}, below the minimum Rp{min} required as collateral for a REPO Transaction. Please select another stock that meets this requirement.",
+    errHaircutTidakDitemukan: "KPEI haircut data for {kode} was not found",
+    errKebutuhanPendanaanMin: "The funding requirement must be greater than 0",
+    errMaturityTidakValid: "Maturity data for {kode} was not found or is invalid",
+    errObligasiMaturityTooLong: "Bond {kode} has a remaining tenor to maturity ({tanggal}) of {tahun} years or more, so it is not yet eligible as collateral for a REPO Transaction. Please select another bond.",
+    errNilaiNominalMin: "The bond nominal value must be greater than 0",
+    errClosingPriceTidakDitemukan: "Closing price for {kode} was not found",
+    errRateBelumDitentukan: "The interest rate for this security category has not been set yet; please contact PEI directly.",
+    errPokokTenorMin: "Principal amount and tenor must be greater than 0.",
+    errDataHargaTidakDitemukan: "Price data for {kode} was not found on Yahoo Finance",
+    errDataHargaTerlaluSedikit: "Price data for {kode} is too limited ({n} days) to calculate",
+    errGagalAmbilHarga: "Failed to fetch price data for {ticker}. Make sure WORKER_BASE_URL in market-data.js is set to an active Cloudflare Worker URL. Detail: {detail}",
   },
 };
 
@@ -706,24 +743,34 @@ function createSimulatorInstance(mode, ids) {
     totalTargetBox.hidden = false;
   }
 
+  // ---- Placeholder field "Kode Efek" tergantung bahasa aktif & status
+  //      loading data referensi. Dipisah dari fillRowDatalist() supaya
+  //      bisa dipanggil ulang sendiri lewat i18nRerenderers saat user
+  //      ganti bahasa TANPA perlu membangun ulang datalist / reset baris. ----
+  function updateRowPlaceholder(row) {
+    const jenis = row.jenisEl.value;
+    row.kodeEl.placeholder = jenis === 'saham'
+      ? (simData ? t('phCariSaham') : t('phLoadingSaham'))
+      : (simData ? t('phCariObligasi') : t('phLoadingObligasi'));
+  }
+
   // ---- Isi datalist baris sesuai jenis efek (saham/obligasi) yang dipilih ----
   function fillRowDatalist(row) {
     const jenis = row.jenisEl.value;
     if (jenis === 'saham') {
       row.datalistEl.innerHTML = sahamOptions.map((o) => `<option value="${o.display}"></option>`).join('');
-      row.kodeEl.placeholder = simData ? t('phCariSaham') : t('phLoadingSaham');
       if (!isReverse) {
         row.jumlahLotField.hidden = false;
         row.jumlahNominalField.hidden = true;
       }
     } else {
       row.datalistEl.innerHTML = obligasiOptions.map((o) => `<option value="${o.display}"></option>`).join('');
-      row.kodeEl.placeholder = simData ? t('phCariObligasi') : t('phLoadingObligasi');
       if (!isReverse) {
         row.jumlahLotField.hidden = true;
         row.jumlahNominalField.hidden = false;
       }
     }
+    updateRowPlaceholder(row);
     row.kodeEl.value = '';
   }
 
@@ -847,6 +894,13 @@ function createSimulatorInstance(mode, ids) {
 
   // Mulai dengan 1 baris efek
   createRow();
+
+  // ---- i18n: baris efek yang sudah ada di layar (placeholder-nya) ikut
+  //      diterjemahkan ulang saat bahasa berganti, tanpa perlu klik hitung
+  //      ulang atau tambah baris baru. ----
+  i18nRerenderers.push(() => {
+    rows.forEach((row) => updateRowPlaceholder(row));
+  });
 
   const tableRow = (label, val, bold) => (
     `<tr><td style="text-align:left; padding:0.3rem 0.8rem 0.3rem 0; color:var(--gray-600, #666); white-space:nowrap;">${label}</td>` +
